@@ -1,0 +1,5 @@
+run.sh
+slurm.sh
+slurm/
+.ipynb_checkpoints/
+

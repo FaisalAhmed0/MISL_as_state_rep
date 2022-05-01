@@ -4,6 +4,11 @@ DOMAINS = [
     'jaco',
 ]
 
+
+CHEETAH_TASKS = [
+    'cheetah_run'
+]
+
 WALKER_TASKS = [
     'walker_stand',
     'walker_walk',
@@ -28,10 +33,11 @@ JACO_TASKS = [
     
 ]
 
-TASKS = WALKER_TASKS + QUADRUPED_TASKS + JACO_TASKS
+TASKS = WALKER_TASKS + QUADRUPED_TASKS + JACO_TASKS + CHEETAH_TASKS
 
 PRIMAL_TASKS = {
     'walker': 'walker_stand',
     'jaco': 'jaco_reach_top_left',
-    'quadruped': 'quadruped_walk'
+    'quadruped': 'quadruped_walk',
+    'cheetah': 'cheetah_run'
 }

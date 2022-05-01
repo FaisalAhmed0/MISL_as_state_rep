@@ -20,13 +20,19 @@ from logger import Logger
 from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
+import yaml
 
 torch.backends.cudnn.benchmark = True
 
 
-def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
+def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_state=None):
     cfg.obs_type = obs_type
-    cfg.obs_shape = obs_spec.shape
+    if encode_state:
+        with open(f"../../../MISL_as_state_rep/agent/{encode_state}.yaml") as f:
+                file = yaml.safe_load(f)
+        cfg.obs_shape = (int(file['skill_dim']), )
+    else:
+        cfg.obs_shape = obs_spec.shape
     cfg.action_shape = action_spec.shape
     cfg.num_expl_steps = num_expl_steps
     return hydra.utils.instantiate(cfg)
@@ -36,7 +42,8 @@ class Workspace:
     def __init__(self, cfg):
         self.work_dir = Path.cwd()
         print(f'workspace: {self.work_dir}')
-
+        print(f"cfg: {cfg}")
+        print(f"cfg type: {type(cfg)}")
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
@@ -54,19 +61,50 @@ class Workspace:
                                   cfg.action_repeat, cfg.seed)
         self.eval_env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
                                  cfg.action_repeat, cfg.seed)
+        # override the obervation shape if the state enocder will be used
 
         # create agent
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
                                 cfg.num_seed_frames // cfg.action_repeat,
-                                cfg.agent)
+                                cfg.agent, 
+                                encode_state = cfg.state_encoder)
 
-        # initialize from pretrained
-        if cfg.snapshot_ts > 0:
+        # Do not initialize from pretrained
+#         if cfg.snapshot_ts > 0:
+#             pretrained_agent = self.load_snapshot()['agent']
+#             self.agent.init_from(pretrained_agent)
+            
+        # check for using the state encoder
+        if cfg.state_encoder != None and cfg.snapshot_ts > 0:
             pretrained_agent = self.load_snapshot()['agent']
-            self.agent.init_from(pretrained_agent)
-
+            if cfg.state_encoder == "cic":
+                self.state_encoder = pretrained_agent.cic.state_net
+            elif cfg.state_encoder == "diayn":
+                self.state_encoder = pretrained_agent.diayn.state_net    
+            # load the state encoder on the DDPG agent
+            self.agent.encoder = self.state_encoder
+            self.agent.finetune_state_encoder = cfg.update_state_encoder
+            self.agent.encoder_opt = None
+            # create an optimizer for the state encoder if required
+            if cfg.update_state_encoder:
+                # extract the learning rate from the yaml file
+                print(f"Current directory: {Path.cwd()}")
+                with open("../../../MISL_as_state_rep/agent/ddpg.yaml") as f:
+                      file = yaml.safe_load(f)
+                lr = float(file['lr'])
+                self.agent.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)                      
+            # prints for debugging
+            print(self.agent)
+            print("############")
+            print(self.agent.encoder)
+            print("############")
+            print(self.agent.finetune_state_encoder)
+            print("############")
+                      
+        
+            
         # get meta specs
         meta_specs = self.agent.get_meta_specs()
         # create replay buffer
@@ -223,12 +261,12 @@ class Workspace:
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
         domain, _ = self.cfg.task.split('_', 1)
-        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.agent.name
+        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.pretrained_agent / self.cfg.experiment
         
         if self.cfg.snapshot_name != 'none':
             snapshot = snapshot_dir / f'snapshot_{self.cfg.snapshot_ts}_{self.cfg.snapshot_name}.pt'
         else:
-            snapshot = snapshot_dir / f'snapshot_{self.cfg.snapshot_ts}.pt'
+            snapshot = snapshot_dir / f'snapshot_{self.cfg.snapshot_ts}_{self.cfg.experiment}.pt'
 
         with snapshot.open('rb') as f:
             payload = torch.load(f)

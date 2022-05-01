@@ -3,7 +3,7 @@ _target_: agent.ddpg.DDPGAgent
 name: ddpg
 reward_free: ${reward_free}
 obs_type: ??? # to be specified later
-obs_shape: ??? # to be specified later
+obs_shape: ??? # to be specified later, overrwrite this when you need for the state encoder
 action_shape: ??? # to be specified later
 device: ${device}
 lr: 1e-4

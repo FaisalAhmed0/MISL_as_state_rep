@@ -1,7 +1,7 @@
 defaults:
   - agent: ddpg
   - override hydra/launcher: submitit_local
-
+pretrained_agent: cic
 # mode
 reward_free: false
 # task settings
@@ -17,7 +17,7 @@ num_seed_frames: 4000
 eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
-snapshot_ts: 100000
+snapshot_ts: 100000 # make -1 do disable pre-trained initlization
 snapshot_base_dir: ../../../pretrained_models
 snapshot_name: none
 # replay buffer
@@ -36,6 +36,9 @@ use_wandb: false
 # experiment
 experiment: exp
 num_bootstrap_updates: 10000
+# use the state encoder from either CIC or DIAYN
+state_encoder: cic # Values: none, cic, diayn
+update_state_encoder: false 
 
 hydra:
   run:

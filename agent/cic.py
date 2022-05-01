@@ -44,6 +44,7 @@ class CIC(nn.Module):
     def forward(self,state,next_state,skill):
         assert len(state.size()) == len(next_state.size())
         state = self.state_net(state)
+        # TODO: check what will happen if you used the self.
         next_state = self.state_net(next_state)
         query = self.skill_net(skill)
         key = self.pred_net(torch.cat([state,next_state],1))

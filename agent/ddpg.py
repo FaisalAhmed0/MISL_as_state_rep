@@ -124,7 +124,7 @@ class DDPGAgent:
     def __init__(self, name, reward_free, obs_type, obs_shape, action_shape,
                  device, lr, feature_dim, hidden_dim, critic_target_tau,
                  num_expl_steps, update_every_steps, stddev_schedule, nstep,
-                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, meta_dim=0):
+                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, meta_dim=0, state_encoder=None, update_state_encoder=False):
         self.reward_free = reward_free
         self.obs_type = obs_type
         self.action_dim = action_shape[0]
@@ -143,8 +143,10 @@ class DDPGAgent:
         self.solved_meta = None
 
         self.batch_size = batch_size
+        self.finetune_state_encoder = update_state_encoder
 
         # models
+        # TODO: intergrate the state encoder for pixels.
         if obs_type == 'pixels':
             self.aug = utils.RandomShiftsAug(pad=4)
             self.encoder = Encoder(obs_shape).to(device)
@@ -152,6 +154,8 @@ class DDPGAgent:
         else:
             self.aug = nn.Identity()
             self.encoder = nn.Identity()
+            if state_encoder:
+                self.encoder = state_encoder
             self.obs_dim = obs_shape[0] + meta_dim
 
         self.actor = Actor(obs_type, self.obs_dim, self.action_dim,
@@ -170,11 +174,17 @@ class DDPGAgent:
                                                 lr=lr)
         else:
             self.encoder_opt = None
+            if state_encoder and finetune_state_encoder:
+                self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         self.train()
         self.critic_target.train()
+        
+        # prints for debugging
+        print(f"Actor: {self.actor}")
+        print(f"Critic: {self.critic}")
 
     def train(self, training=True):
         self.training = training
@@ -200,7 +210,10 @@ class DDPGAgent:
 
     def act(self, obs, meta, step, eval_mode):
         obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
-        h = self.encoder(obs)
+        if not self.finetune_state_encoder:
+            h = self.encoder(obs).detach() # Use the state encoder as a fixed feature extractor
+        else:
+            h = self.encoder(obs) # Fintune the state encoder for the downstream task
         inputs = [h]
         for value in meta.values():
             value = torch.as_tensor(value, device=self.device).unsqueeze(0)
@@ -221,6 +234,8 @@ class DDPGAgent:
         metrics = dict()
 
         with torch.no_grad():
+            # If the observation are not the latent states pass them through the state encoder here.
+            print(f"observation shape in update critic: {obs.shape}")
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
             next_action = dist.sample(clip=self.stddev_clip)
@@ -239,6 +254,7 @@ class DDPGAgent:
 
         # optimize critic
         if self.encoder_opt is not None:
+            print("Satate encoder optimization in update crititc function")
             self.encoder_opt.zero_grad(set_to_none=True)
         self.critic_opt.zero_grad(set_to_none=True)
         critic_loss.backward()
@@ -255,7 +271,7 @@ class DDPGAgent:
 
     def update_actor(self, obs, step):
         metrics = dict()
-
+        print(f"observation shape in update actor: {obs}")
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
         action = dist.sample(clip=self.stddev_clip)
@@ -282,6 +298,11 @@ class DDPGAgent:
         return self.encoder(obs)
 
     def update(self, replay_iter, step):
+        # Print for debugging
+        print("Values is the DDPG update function")
+        print(f"encoder optimizer: {self.encoder_opt}")
+        print(f"state encoder: {self.encoder}")
+        print(f"update state encoder flag: {self.finetune_state_encoder}")
         metrics = dict()
         #import ipdb; ipdb.set_trace()
 
