@@ -18,7 +18,7 @@ eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
 snapshot_ts: 100000 # make -1 do disable pre-trained initlization
-snapshot_base_dir: ../../../pretrained_models
+snapshot_base_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models
 snapshot_name: none
 # replay buffer
 replay_buffer_size: 1000000
@@ -37,20 +37,20 @@ use_wandb: false
 experiment: exp
 num_bootstrap_updates: 10000
 # use the state encoder from either CIC or DIAYN
-state_encoder: cic # Values: none, cic, diayn
+state_encoder: none # Values: none, cic, diayn
 update_state_encoder: false 
 
 hydra:
   run:
-    dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}
-  sweep:
-    dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
-    subdir: ${hydra.job.num}
-  launcher:
-    timeout_min: 4300
-    cpus_per_task: 10
-    gpus_per_node: 1
-    tasks_per_node: 1
-    mem_gb: 160
-    nodes: 1
-    submitit_folder: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}/.slurm
+    dir: /mnt/qb/work/bethge/fmohamed65/exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}
+#   sweep:
+#     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
+#     subdir: ${hydra.job.num}
+#   launcher:
+#     timeout_min: 4300
+#     cpus_per_task: 4
+#     gpus_per_node: 1
+#     tasks_per_node: 1
+#     mem_gb: 160
+#     nodes: 1
+#     submitit_folder: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}/.slurm

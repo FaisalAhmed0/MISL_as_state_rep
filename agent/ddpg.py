@@ -124,7 +124,7 @@ class DDPGAgent:
     def __init__(self, name, reward_free, obs_type, obs_shape, action_shape,
                  device, lr, feature_dim, hidden_dim, critic_target_tau,
                  num_expl_steps, update_every_steps, stddev_schedule, nstep,
-                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, meta_dim=0, state_encoder=None, update_state_encoder=False):
+                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, meta_dim=0, state_encoder="none", update_state_encoder=False):
         self.reward_free = reward_free
         self.obs_type = obs_type
         self.action_dim = action_shape[0]
@@ -144,6 +144,7 @@ class DDPGAgent:
 
         self.batch_size = batch_size
         self.finetune_state_encoder = update_state_encoder
+        self.batch = None
 
         # models
         # TODO: intergrate the state encoder for pixels.
@@ -154,7 +155,7 @@ class DDPGAgent:
         else:
             self.aug = nn.Identity()
             self.encoder = nn.Identity()
-            if state_encoder:
+            if state_encoder != "none":
                 self.encoder = state_encoder
             self.obs_dim = obs_shape[0] + meta_dim
 
@@ -174,7 +175,7 @@ class DDPGAgent:
                                                 lr=lr)
         else:
             self.encoder_opt = None
-            if state_encoder and finetune_state_encoder:
+            if state_encoder and update_state_encoder:
                 self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
@@ -183,12 +184,12 @@ class DDPGAgent:
         self.critic_target.train()
         
         # prints for debugging
-        print(f"Actor: {self.actor}")
-        print(f"Critic: {self.critic}")
+#         print(f"Actor: {self.actor}")
+#         print(f"Critic: {self.critic}")
 
     def train(self, training=True):
         self.training = training
-        self.encoder.train(training)
+#         self.encoder.train(training)
         self.actor.train(training)
         self.critic.train(training)
 
@@ -235,7 +236,7 @@ class DDPGAgent:
 
         with torch.no_grad():
             # If the observation are not the latent states pass them through the state encoder here.
-            print(f"observation shape in update critic: {obs.shape}")
+#             print(f"observation shape in update critic: {obs.shape}")
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
             next_action = dist.sample(clip=self.stddev_clip)
@@ -254,7 +255,7 @@ class DDPGAgent:
 
         # optimize critic
         if self.encoder_opt is not None:
-            print("Satate encoder optimization in update crititc function")
+#             print("Satate encoder optimization in update crititc function")
             self.encoder_opt.zero_grad(set_to_none=True)
         self.critic_opt.zero_grad(set_to_none=True)
         critic_loss.backward()
@@ -271,7 +272,7 @@ class DDPGAgent:
 
     def update_actor(self, obs, step):
         metrics = dict()
-        print(f"observation shape in update actor: {obs}")
+#         print(f"observation shape in update actor: {obs}")
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
         action = dist.sample(clip=self.stddev_clip)
@@ -296,20 +297,25 @@ class DDPGAgent:
     def aug_and_encode(self, obs):
         obs = self.aug(obs)
         return self.encoder(obs)
+    
 
     def update(self, replay_iter, step):
-        # Print for debugging
-        print("Values is the DDPG update function")
-        print(f"encoder optimizer: {self.encoder_opt}")
-        print(f"state encoder: {self.encoder}")
-        print(f"update state encoder flag: {self.finetune_state_encoder}")
+#         # Print for debugging
+#         print("Values is the DDPG update function")
+#         print(f"encoder optimizer: {self.encoder_opt}")
+#         print(f"state encoder: {self.encoder}")
+#         print(f"update state encoder flag: {self.finetune_state_encoder}")
         metrics = dict()
         #import ipdb; ipdb.set_trace()
 
         if step % self.update_every_steps != 0:
             return metrics
-
         batch = next(replay_iter)
+#             print(f"sampled batch without error at timestep: {step}")
+        self.batch = batch
+
+#         print("batch")
+#         print(batch)
         obs, action, reward, discount, next_obs = utils.to_torch(
             batch, self.device)
 
@@ -331,5 +337,7 @@ class DDPGAgent:
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,
                                  self.critic_target_tau)
+
+           
 
         return metrics

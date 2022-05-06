@@ -8,7 +8,7 @@ os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 os.environ['MUJOCO_GL'] = 'egl'
 
 from pathlib import Path
-
+from copy import deepcopy
 import hydra
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ from dm_env import specs
 import dmc
 import utils
 from logger import Logger
-from replay_buffer import ReplayBufferStorage, make_replay_loader
+from replay_buffer import ReplayBufferStorage, make_replay_loader, DataBuffer
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
 import yaml
@@ -27,8 +27,9 @@ torch.backends.cudnn.benchmark = True
 
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_state=None):
     cfg.obs_type = obs_type
-    if encode_state:
-        with open(f"../../../MISL_as_state_rep/agent/{encode_state}.yaml") as f:
+    print(f"current path {Path.cwd()}")
+    if encode_state != "none":
+        with open(f"/home/bethge/fmohamed65/MISL_as_state_rep/agent/{encode_state}.yaml") as f:
                 file = yaml.safe_load(f)
         cfg.obs_shape = (int(file['skill_dim']), )
     else:
@@ -41,9 +42,9 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_stat
 class Workspace:
     def __init__(self, cfg):
         self.work_dir = Path.cwd()
-        print(f'workspace: {self.work_dir}')
-        print(f"cfg: {cfg}")
-        print(f"cfg type: {type(cfg)}")
+#         print(f'workspace: {self.work_dir}')
+#         print(f"cfg: {cfg}")
+#         print(f"cfg type: {type(cfg)}")
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
@@ -77,10 +78,12 @@ class Workspace:
 #             self.agent.init_from(pretrained_agent)
             
         # check for using the state encoder
-        if cfg.state_encoder != None and cfg.snapshot_ts > 0:
+        if cfg.state_encoder != "none" and cfg.snapshot_ts > 0:
             pretrained_agent = self.load_snapshot()['agent']
+            print("pretrained agent is loaded")
             if cfg.state_encoder == "cic":
                 self.state_encoder = pretrained_agent.cic.state_net
+                print("cic agent has been assigned")
             elif cfg.state_encoder == "diayn":
                 self.state_encoder = pretrained_agent.diayn.state_net    
             # load the state encoder on the DDPG agent
@@ -91,19 +94,21 @@ class Workspace:
             if cfg.update_state_encoder:
                 # extract the learning rate from the yaml file
                 print(f"Current directory: {Path.cwd()}")
-                with open("../../../MISL_as_state_rep/agent/ddpg.yaml") as f:
+                with open("/home/bethge/fmohamed65/MISL_as_state_rep/agent/ddpg.yaml") as f:
                       file = yaml.safe_load(f)
                 lr = float(file['lr'])
-                self.agent.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)                      
-            # prints for debugging
-            print(self.agent)
-            print("############")
-            print(self.agent.encoder)
-            print("############")
-            print(self.agent.finetune_state_encoder)
-            print("############")
+                self.agent.encoder_opt = torch.optim.Adam(self.agent.encoder.parameters(), lr=lr)                      
+                self.agent.encoder.train(self.agent.training)
+#             # prints for debugging
+#             print(self.agent)
+#             print("############")
+#             print(self.agent.encoder)
+#             print("############")
+#             print(self.agent.finetune_state_encoder)
+#             print("############")
                       
-        
+        self.agent.train()
+        self.agent.critic_target.train()
             
         # get meta specs
         meta_specs = self.agent.get_meta_specs()
@@ -116,6 +121,8 @@ class Workspace:
         # create data storage
         self.replay_storage = ReplayBufferStorage(data_specs, meta_specs,
                                                   self.work_dir / 'buffer')
+        # Faisal
+#         self.data_buffer = DataBuffer(data_specs, meta_specs, cfg.replay_buffer_size)
 
         # create replay buffer
         self.replay_loader = make_replay_loader(self.replay_storage,
@@ -191,7 +198,11 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
+        current_time_step = deepcopy(time_step)
         meta = self.agent.init_meta()
+#         self.data_buffer.add(time_step, meta)
+#         print(time_step)
+#         print(time_step)
         self.replay_storage.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -211,12 +222,14 @@ class Workspace:
                         log('episode_reward', episode_reward)
                         log('episode_length', episode_frame)
                         log('episode', self.global_episode)
-                        log('buffer_size', len(self.replay_storage))
+#                         log('buffer_size', len(self.data_buffer))
                         log('step', self.global_step)
 
                 # reset env
                 time_step = self.train_env.reset()
+                current_time_step = deepcopy(time_step)
                 meta = self.agent.init_meta()
+#                 self.data_buffer.add(time_step, meta)
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
 
@@ -252,11 +265,16 @@ class Workspace:
 
             # take env step
             time_step = self.train_env.step(action)
+            next_time_step = deepcopy(time_step)
+            # Faisal
+#             print(f"meta: {meta}")
+#             self.data_buffer.add(time_step, meta)
             episode_reward += time_step.reward
             self.replay_storage.add(time_step, meta)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
+            current_time_step = deepcopy(next_time_step)
 
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
@@ -267,7 +285,7 @@ class Workspace:
             snapshot = snapshot_dir / f'snapshot_{self.cfg.snapshot_ts}_{self.cfg.snapshot_name}.pt'
         else:
             snapshot = snapshot_dir / f'snapshot_{self.cfg.snapshot_ts}_{self.cfg.experiment}.pt'
-
+        print(f"snapshot path: {snapshot}")
         with snapshot.open('rb') as f:
             payload = torch.load(f)
         return payload
@@ -275,6 +293,7 @@ class Workspace:
 
 @hydra.main(config_path='.', config_name='finetune')
 def main(cfg):
+    print(f"cfg: {cfg}")
     from finetune import Workspace as W
     root_dir = Path.cwd()
     workspace = W(cfg)

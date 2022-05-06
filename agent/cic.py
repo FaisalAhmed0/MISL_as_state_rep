@@ -120,6 +120,7 @@ class CICAgent(DDPGAgent):
         self.rew_type = rew_type
         self.update_rep = update_rep
         kwargs["meta_dim"] = self.skill_dim
+        kwargs["update_encoder"] = None
         # create actor and critic
         
 

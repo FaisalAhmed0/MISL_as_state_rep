@@ -53,6 +53,8 @@ def hard_update_params(net, target_net):
 
 
 def to_torch(xs, device):
+#     print("lemgth")
+#     print(len(tuple(torch.as_tensor(x, device=device) for x in xs)))
     return tuple(torch.as_tensor(x, device=device) for x in xs)
 
 

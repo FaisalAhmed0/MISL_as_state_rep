@@ -3,7 +3,7 @@ import io
 import random
 import traceback
 from collections import defaultdict
-
+import collections
 import numpy as np
 import torch
 import torch.nn as nn
@@ -28,6 +28,80 @@ def load_episode(fn):
         episode = np.load(f)
         episode = {k: episode[k] for k in episode.keys()}
         return episode
+
+    
+
+class DataBuffer(IterableDataset):
+    '''
+    DataBuffer(size)
+    A simple data Buffer to sotre transition during the training,
+    size: the max length of the buffer
+    obs_shape: size of the observation vector
+    '''
+    def __init__(self, data_specs, meta_specs, size):
+        # Create the buffer as a Dequeue for efficient appending and poping
+        self._data_specs = data_specs
+        self._meta_specs = meta_specs
+        self._current_episode = defaultdict(list)
+        self.episodes = collections.deque(maxlen=size)
+        self.t = 0
+        self._discount = 0.99
+        self._nstep  = 3
+        self.size = size
+
+    def add(self, time_step, meta):
+        for key, value in meta.items():
+            self._current_episode[key].append(value)
+        for spec in self._data_specs:
+            value = time_step[spec.name]
+            if np.isscalar(value):
+                value = np.full(spec.shape, value, spec.dtype)
+            assert spec.shape == value.shape and spec.dtype == value.dtype
+            self._current_episode[spec.name].append(value)
+        if time_step.last():
+            episode = dict()
+            for spec in self._data_specs:
+                value = self._current_episode[spec.name]
+                episode[spec.name] = np.array(value, spec.dtype)
+            for spec in self._meta_specs:
+                value = self._current_episode[spec.name]
+                episode[spec.name] = np.array(value, spec.dtype)
+            self.episodes.append(episode)
+            self._current_episode = defaultdict(list) 
+        self.t = (self.t + 1) % self.size
+            
+            
+
+    def _sample(self):
+        eps_dict = random.choice(self.episodes)
+        episode = eps_dict
+        # add +1 for the first dummy transition
+#         print(f"episodeL {episode}")
+#         print(f"episode_len: {episode_len(episode)}")
+        idx = np.random.randint(0, episode_len(episode) - self._nstep + 1) + 1
+        meta = []
+        for spec in self._meta_specs:
+            meta.append(episode[spec.name][idx - 1])
+        obs = episode['observation'][idx - 1]
+        action = episode['action'][idx]
+        next_obs = episode['observation'][idx + self._nstep - 1]
+        reward = np.zeros_like(episode['reward'][idx])
+        discount = np.ones_like(episode['discount'][idx])
+        for i in range(self._nstep):
+            step_reward = episode['reward'][idx + i]
+            reward += discount * step_reward
+            discount *= episode['discount'][idx + i] * self._discount
+#         print(f"reward: {reward}")
+#         print(f"discount: {discount}")
+        return (obs, action, reward, discount, next_obs, *meta)
+    
+    def __len__(self):
+        return len(self.episodes) * 1000
+    
+    def __iter__(self):
+        while True:
+            yield self._sample()
+
 
 
 class ReplayBufferStorage:
@@ -96,6 +170,9 @@ class ReplayBuffer(IterableDataset):
         self._save_snapshot = save_snapshot
 
     def _sample_episode(self):
+#         print("episode fun")
+#         print(self._episode_fns)
+#         print(random.choice(self._episode_fns))
         eps_fn = random.choice(self._episode_fns)
         return self._episodes[eps_fn]
 
@@ -162,6 +239,8 @@ class ReplayBuffer(IterableDataset):
             step_reward = episode['reward'][idx + i]
             reward += discount * step_reward
             discount *= episode['discount'][idx + i] * self._discount
+#         print(f"reward: {reward}")
+#         print(f"discount: {discount}")
         return (obs, action, reward, discount, next_obs, *meta)
 
     def __iter__(self):
@@ -178,6 +257,7 @@ def _worker_init_fn(worker_id):
 def make_replay_loader(storage, max_size, batch_size, num_workers,
                        save_snapshot, nstep, discount):
     max_size_per_worker = max_size // max(1, num_workers)
+    
 
     iterable = ReplayBuffer(storage,
                             max_size_per_worker,

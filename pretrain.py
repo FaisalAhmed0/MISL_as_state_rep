@@ -37,7 +37,9 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
 class Workspace:
     def __init__(self, cfg):
         self.work_dir = Path.cwd()
+#         self.work_dir = Path("/mnt/qb/work/bethge/fmohamed65")
         print(f'workspace: {self.work_dir}')
+        print(f"CGF:{cfg}")
 
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
@@ -203,6 +205,7 @@ class Workspace:
                                         self.global_step,
                                         eval_mode=False)
 
+#             print(f"Buffer length: {len(self.replay_storage)}")
             # try to update the agent
             if not seed_until_step(self.global_step):
                 metrics = self.agent.update(self.replay_iter, self.global_step)
@@ -229,7 +232,12 @@ class Workspace:
 @hydra.main(config_path='.', config_name='pretrain')
 def main(cfg):
     from pretrain import Workspace as W
+#     print(cfg)
+#     import sys
+#     sys.exit()
     root_dir = Path.cwd()
+    print(f"root_dir: {root_dir}")
+#     root_dir = Path("/mnt/qb/work/bethge/fmohamed65")
     workspace = W(cfg)
     snapshot = root_dir / 'snapshot.pt'
     if snapshot.exists():
