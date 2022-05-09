@@ -39,10 +39,11 @@ num_bootstrap_updates: 10000
 # use the state encoder from either CIC or DIAYN
 state_encoder: none # Values: none, cic, diayn
 update_state_encoder: false 
+data_folder: none
 
 hydra:
   run:
-    dir: /mnt/qb/work/bethge/fmohamed65/exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}
+    dir: /mnt/qb/work/bethge/fmohamed65/exp_local/${data_folder}
 #   sweep:
 #     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
 #     subdir: ${hydra.job.num}
