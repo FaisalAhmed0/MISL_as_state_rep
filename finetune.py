@@ -30,10 +30,16 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_stat
     print(f"current path {Path.cwd()}")
     if encode_state != "none":
         with open(f"/home/bethge/fmohamed65/MISL_as_state_rep/agent/{encode_state}.yaml") as f:
-                file = yaml.safe_load(f)
-        cfg.obs_shape = (int(file['skill_dim']), )
+            file = yaml.safe_load(f)
+        if encode_state != "none" and obs_type!="pixels":
+            cfg.obs_shape = int(file['skill_dim'])
+            cfg.meta_dim = 0
+        else:
+            cfg.obs_shape = obs_spec.shape
+            cfg.meta_dim = int(file['skill_dim'])
     else:
         cfg.obs_shape = obs_spec.shape
+        cfg.meta_dim = 0
     cfg.action_shape = action_spec.shape
     cfg.num_expl_steps = num_expl_steps
     return hydra.utils.instantiate(cfg)
@@ -42,17 +48,18 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_stat
 class Workspace:
     def __init__(self, cfg):
         self.work_dir = Path.cwd()
-#         print(f'workspace: {self.work_dir}')
-#         print(f"cfg: {cfg}")
-#         print(f"cfg type: {type(cfg)}")
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
 
         # create logger
         if cfg.use_wandb:
-            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.task,cfg.obs_type,str(cfg.seed)])
-            wandb.init(project="cic_icml",group=cfg.agent.name + '-ft',name=exp_name)
+#             exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.task,cfg.obs_type,str(cfg.seed)])
+            exp_name = f"{cfg.state_encoder}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.state_encoder}"
+            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type}
+            print("h")
+            print('\0' in str(hyperparams))
+            wandb.init(project="cic_finetune_0",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams)
 
         # create logger
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
@@ -65,6 +72,7 @@ class Workspace:
         # override the obervation shape if the state enocder will be used
 
         # create agent
+        print(f"observation type: {cfg.obs_type}")
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
@@ -81,15 +89,21 @@ class Workspace:
         if cfg.state_encoder != "none" and cfg.snapshot_ts > 0:
             pretrained_agent = self.load_snapshot()['agent']
             print("pretrained agent is loaded")
+            # load the cnn encoder incase of image observations
+            if cfg.obs_type == "pixels":
+                self.pixel_encoder = pretrained_agent.encoder
+                print(f"pixel cnoder: {pretrained_agent.encoder}")
+                self.agent.encoder = self.pixel_encoder
+            # load the misl state encoder
             if cfg.state_encoder == "cic":
                 self.state_encoder = pretrained_agent.cic.state_net
                 print("cic agent has been assigned")
             elif cfg.state_encoder == "diayn":
                 self.state_encoder = pretrained_agent.diayn.state_net    
             # load the state encoder on the DDPG agent
-            self.agent.encoder = self.state_encoder
+            self.agent.misl_state_encoder = self.state_encoder
             self.agent.finetune_state_encoder = cfg.update_state_encoder
-            self.agent.encoder_opt = None
+            self.agent.misl_encoder_opt = None
             # create an optimizer for the state encoder if required
             if cfg.update_state_encoder:
                 # extract the learning rate from the yaml file
@@ -97,15 +111,11 @@ class Workspace:
                 with open("/home/bethge/fmohamed65/MISL_as_state_rep/agent/ddpg.yaml") as f:
                       file = yaml.safe_load(f)
                 lr = float(file['lr'])
-                self.agent.encoder_opt = torch.optim.Adam(self.agent.encoder.parameters(), lr=lr)                      
+                self.agent.misl_encoder_opt = torch.optim.Adam(self.agent.misl_state_encoder.parameters(), lr=lr)
+                self.agent.misl_state_encoder.train(self.agent.training)
+                self.agent.encoder_opt = torch.optim.Adam(self.agent.encoder.parameters(), lr=lr)
                 self.agent.encoder.train(self.agent.training)
-#             # prints for debugging
-#             print(self.agent)
-#             print("############")
-#             print(self.agent.encoder)
-#             print("############")
-#             print(self.agent.finetune_state_encoder)
-#             print("############")
+
                       
         self.agent.train()
         self.agent.critic_target.train()
@@ -121,8 +131,6 @@ class Workspace:
         # create data storage
         self.replay_storage = ReplayBufferStorage(data_specs, meta_specs,
                                                   self.work_dir / 'buffer')
-        # Faisal
-#         self.data_buffer = DataBuffer(data_specs, meta_specs, cfg.replay_buffer_size)
 
         # create replay buffer
         self.replay_loader = make_replay_loader(self.replay_storage,
@@ -200,9 +208,6 @@ class Workspace:
         time_step = self.train_env.reset()
         current_time_step = deepcopy(time_step)
         meta = self.agent.init_meta()
-#         self.data_buffer.add(time_step, meta)
-#         print(time_step)
-#         print(time_step)
         self.replay_storage.add(time_step, meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
@@ -222,7 +227,6 @@ class Workspace:
                         log('episode_reward', episode_reward)
                         log('episode_length', episode_frame)
                         log('episode', self.global_episode)
-#                         log('buffer_size', len(self.data_buffer))
                         log('step', self.global_step)
 
                 # reset env

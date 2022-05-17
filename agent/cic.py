@@ -128,6 +128,7 @@ class CICAgent(DDPGAgent):
         # create cic first
         self.cic = CIC(self.obs_dim - skill_dim, skill_dim,
                            kwargs['hidden_dim'], project_skill).to(kwargs['device'])
+        print(f"CIC agent: {self.cic}")
 
         # optimizers
         self.cic_optimizer = torch.optim.Adam(self.cic.parameters(),

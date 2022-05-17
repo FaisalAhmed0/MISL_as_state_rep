@@ -60,8 +60,11 @@ class MetersGroup(object):
     def _remove_old_entries(self, data):
         rows = []
         with self._csv_file_name.open('r') as f:
+#             print(f"file: {f.read()}")
+#             print('\0' in f.read())
             reader = csv.DictReader(f)
             for row in reader:
+                print(f"row: {row}")
                 if float(row['episode']) >= data['episode']:
                     break
                 rows.append(row)
