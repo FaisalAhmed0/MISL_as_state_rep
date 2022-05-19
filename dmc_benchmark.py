@@ -2,7 +2,7 @@ DOMAINS = [
     'walker',
     'quadruped',
     'jaco',
-    'cheetah'
+    'cheetah'.
 ]
 
 

@@ -54,12 +54,11 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-#             exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.task,cfg.obs_type,str(cfg.seed)])
-            exp_name = f"{cfg.state_encoder}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.state_encoder}"
-            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type}
-            print("h")
-            print('\0' in str(hyperparams))
-            wandb.init(project="cic_finetune_0",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams)
+            exp_name = f"{cfg.state_encoder}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.update_encoder}"
+            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_encoder, "obs_type":cfg.obs_type}
+            print(f"exp_name:{exp_name}")
+            print(f"hyper:{hyperparams}")
+            wandb.init(project="cic_finetune__2",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams)
 
         # create logger
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
@@ -70,20 +69,14 @@ class Workspace:
         self.eval_env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
                                  cfg.action_repeat, cfg.seed)
         # override the obervation shape if the state enocder will be used
-
         # create agent
-        print(f"observation type: {cfg.obs_type}")
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),
                                 self.train_env.action_spec(),
                                 cfg.num_seed_frames // cfg.action_repeat,
                                 cfg.agent, 
                                 encode_state = cfg.state_encoder)
-
-        # Do not initialize from pretrained
-#         if cfg.snapshot_ts > 0:
-#             pretrained_agent = self.load_snapshot()['agent']
-#             self.agent.init_from(pretrained_agent)
+        
             
         # check for using the state encoder
         if cfg.state_encoder != "none" and cfg.snapshot_ts > 0:
@@ -229,11 +222,9 @@ class Workspace:
                         log('episode', self.global_episode)
                         log('step', self.global_step)
 
-                # reset env
                 time_step = self.train_env.reset()
                 current_time_step = deepcopy(time_step)
                 meta = self.agent.init_meta()
-#                 self.data_buffer.add(time_step, meta)
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
 
@@ -270,9 +261,6 @@ class Workspace:
             # take env step
             time_step = self.train_env.step(action)
             next_time_step = deepcopy(time_step)
-            # Faisal
-#             print(f"meta: {meta}")
-#             self.data_buffer.add(time_step, meta)
             episode_reward += time_step.reward
             self.replay_storage.add(time_step, meta)
             self.train_video_recorder.record(time_step.observation)

@@ -143,20 +143,16 @@ class DDPGAgent:
         self.update_encoder = update_encoder
         self.batch_size = batch_size
         self.finetune_state_encoder = update_state_encoder
-#         print(f"type of finetune_state_encodrr: {type(update_state_encoder)}")
         self.batch = None
         self.use_state_encoder = state_encoder
         self.misl_state_encoder = None
 
         # models
-        # TODO: intergrate the state encoder for pixels.
         if obs_type == 'pixels':
             self.aug = utils.RandomShiftsAug(pad=4)
-#             self.aug = nn.Identity()
             self.encoder = Encoder(obs_shape).to(device)
             self.obs_dim = self.encoder.repr_dim + meta_dim
             if state_encoder != "none":
-#                 print(f"meta_dim: {meta_dim}")
                 self.obs_dim = meta_dim
         else:
             self.aug = nn.Identity()
@@ -185,17 +181,12 @@ class DDPGAgent:
         else:
             self.encoder_opt = None
             if state_encoder and update_state_encoder:
-#                 self.encoder_opt = torch.optim.Adam(self.encoder.parameters(), lr=lr)
                 self.misl_encoder_opt = torch.optim.Adam(self.misl_state_encoder.parameters(), lr=lr)
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         self.train()
         self.critic_target.train()
-        
-        # prints for debugging
-#         print(f"Actor: {self.actor}")
-#         print(f"Critic: {self.critic}")
 
     def train(self, training=True):
         self.training = training
@@ -220,9 +211,6 @@ class DDPGAgent:
         return meta
 
     def act(self, obs, meta, step, eval_mode):
-#         print(f"act function")
-#         print(f"pixel encoder: {self.encoder}")
-#         print(f"cic state encoder: {self.misl_state_encoder}")
         obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
         if not self.finetune_state_encoder:
             h = self.encoder(obs).detach() # Use the state encoder as a fixed feature extractor
@@ -253,7 +241,6 @@ class DDPGAgent:
 
         with torch.no_grad():
             # If the observation are not the latent states pass them through the state encoder here.
-#             print(f"observation shape in update critic: {obs.shape}")
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
             next_action = dist.sample(clip=self.stddev_clip)
@@ -272,7 +259,6 @@ class DDPGAgent:
 
         # optimize critic
         if self.encoder_opt is not None:
-#             print("Satate encoder optimization in update crititc function")
             self.encoder_opt.zero_grad(set_to_none=True)
         if self.finetune_state_encoder:
             self.misl_encoder_opt.zero_grad(set_to_none=True)
@@ -293,7 +279,6 @@ class DDPGAgent:
 
     def update_actor(self, obs, step):
         metrics = dict()
-#         print(f"observation shape in update actor: {obs}")
         stddev = utils.schedule(self.stddev_schedule, step)
         dist = self.actor(obs, stddev)
         action = dist.sample(clip=self.stddev_clip)
@@ -321,24 +306,13 @@ class DDPGAgent:
     
 
     def update(self, replay_iter, step):
-#         print("Update functions")
-#         print(f"Pixel encoder: {self.encoder}")
-#         print(f"cic encoder: {self.misl_state_encoder}")
-#         print(f"Update encoders?: {self.finetune_state_encoder}")
-#         print(f"pixel encoder optimizer: {self.encoder_opt}")
-#         print(f"cic encoder optimizer: {self.misl_encoder_opt}")
-
         metrics = dict()
-        #import ipdb; ipdb.set_trace()
-
+        
         if step % self.update_every_steps != 0:
             return metrics
         batch = next(replay_iter)
-#             print(f"sampled batch without error at timestep: {step}")
         self.batch = batch
 
-#         print("batch")
-#         print(batch)
         obs, action, reward, discount, next_obs = utils.to_torch(
             batch, self.device)
 
