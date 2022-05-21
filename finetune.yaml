@@ -20,7 +20,7 @@ num_eval_episodes: 10
 snapshot_ts: 100000 # make -1 do disable pre-trained initlization
 snapshot_base_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models
 snapshot_name: none
-replay_buffer_size: 100000
+replay_buffer_size: 1000000
 replay_buffer_num_workers: 4
 batch_size: ${agent.batch_size}
 nstep: ${agent.nstep}

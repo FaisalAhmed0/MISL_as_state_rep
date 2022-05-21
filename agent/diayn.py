@@ -29,12 +29,11 @@ class DIAYN(nn.Module):
 
 
 class DIAYNAgent(DDPGAgent):
-    def __init__(self, update_skill_every_step, skill_dim, diayn_scale,
-                 update_encoder, **kwargs):
+    def __init__(self, update_skill_every_step, skill_dim, diayn_scale, **kwargs):
         self.skill_dim = skill_dim
         self.update_skill_every_step = update_skill_every_step
         self.diayn_scale = diayn_scale
-        self.update_encoder = update_encoder
+#         self.update_encoder = update_encoder
         # increase obs shape to include skill dim
         kwargs["meta_dim"] = self.skill_dim
 
@@ -126,8 +125,9 @@ class DIAYNAgent(DDPGAgent):
             batch, self.device)
 
         # augment and encode
-        obs = self.aug_and_encode(obs)
-        next_obs = self.aug_and_encode(next_obs)
+        with torch.no_grad():
+            obs = self.aug_and_encode(obs)
+            next_obs = self.aug_and_encode(next_obs)
 
         if self.reward_free:
             metrics.update(self.update_diayn(skill, next_obs, step))
@@ -145,9 +145,9 @@ class DIAYNAgent(DDPGAgent):
             metrics['extr_reward'] = extr_reward.mean().item()
             metrics['batch_reward'] = reward.mean().item()
 
-        if not self.update_encoder:
-            obs = obs.detach()
-            next_obs = next_obs.detach()
+#         if not self.update_encoder:
+#             obs = obs.detach()
+#             next_obs = next_obs.detach()
 
         # extend observations with skill
         obs = torch.cat([obs, skill], dim=1)

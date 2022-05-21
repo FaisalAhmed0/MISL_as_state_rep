@@ -47,8 +47,9 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.domain,cfg.obs_type,str(cfg.seed)])
-            wandb.init(project="cic_icml",group=cfg.agent.name,name=exp_name)
+            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.domain,cfg.obs_type,str(cfg.seed), '25', '128'])
+            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "skill_dim": 128, "feature_dim": 25}
+            wandb.init(project="cic_pretrain",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
 
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb,use_wandb=cfg.use_wandb)
         # create envs

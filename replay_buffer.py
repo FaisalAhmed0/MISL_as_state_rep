@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import IterableDataset
+import os
 
 
 def episode_len(episode):
@@ -15,12 +16,15 @@ def episode_len(episode):
     return next(iter(episode.values())).shape[0] - 1
 
 
-def save_episode(episode, fn):
+def save_episode(episode, fn, fn2):
     with io.BytesIO() as bs:
         np.savez_compressed(bs, **episode)
         bs.seek(0)
         with fn.open('wb') as f:
             f.write(bs.read())
+        with fn2.open('wb') as f:
+            f.write(bs.read())
+
 
 
 def load_episode(fn):
@@ -76,7 +80,10 @@ class ReplayBufferStorage:
         self._num_transitions += eps_len
         ts = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
         eps_fn = f'{ts}_{eps_idx}_{eps_len}.npz'
-        save_episode(episode, self._replay_dir / eps_fn)
+        save_dir = self._replay_dir / "saved"
+        os.makedirs(save_dir, exist_ok=True)
+#         print("saved")
+        save_episode(episode, self._replay_dir / eps_fn, save_dir/ eps_fn)
 
 
 class ReplayBuffer(IterableDataset):

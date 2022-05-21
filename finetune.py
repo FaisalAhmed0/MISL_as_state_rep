@@ -17,7 +17,7 @@ from dm_env import specs
 import dmc
 import utils
 from logger import Logger
-from replay_buffer import ReplayBufferStorage, make_replay_loader, DataBuffer
+from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
 import yaml
@@ -54,8 +54,8 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = f"{cfg.state_encoder}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.update_encoder}"
-            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_encoder, "obs_type":cfg.obs_type}
+            exp_name = f"{cfg.pretrained_agent}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.update_state_encoder}_update_cnn_encoder_{cfg.update_encoder}"
+            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
             wandb.init(project="cic_finetune__2",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams)
@@ -79,7 +79,7 @@ class Workspace:
         
             
         # check for using the state encoder
-        if cfg.state_encoder != "none" and cfg.snapshot_ts > 0:
+        if cfg.pretrained_agent != "none" and cfg.snapshot_ts > 0:
             pretrained_agent = self.load_snapshot()['agent']
             print("pretrained agent is loaded")
             # load the cnn encoder incase of image observations
@@ -94,9 +94,10 @@ class Workspace:
             elif cfg.state_encoder == "diayn":
                 self.state_encoder = pretrained_agent.diayn.state_net    
             # load the state encoder on the DDPG agent
-            self.agent.misl_state_encoder = self.state_encoder
-            self.agent.finetune_state_encoder = cfg.update_state_encoder
-            self.agent.misl_encoder_opt = None
+            if cfg.state_encoder != "none":
+                self.agent.misl_state_encoder = self.state_encoder
+                self.agent.finetune_state_encoder = cfg.update_state_encoder
+                self.agent.misl_encoder_opt = None
             # create an optimizer for the state encoder if required
             if cfg.update_state_encoder:
                 # extract the learning rate from the yaml file
@@ -106,6 +107,10 @@ class Workspace:
                 lr = float(file['lr'])
                 self.agent.misl_encoder_opt = torch.optim.Adam(self.agent.misl_state_encoder.parameters(), lr=lr)
                 self.agent.misl_state_encoder.train(self.agent.training)
+            if cfg.update_encoder:
+                with open("/home/bethge/fmohamed65/MISL_as_state_rep/agent/ddpg.yaml") as f:
+                      file = yaml.safe_load(f)
+                lr = float(file['lr'])
                 self.agent.encoder_opt = torch.optim.Adam(self.agent.encoder.parameters(), lr=lr)
                 self.agent.encoder.train(self.agent.training)
 

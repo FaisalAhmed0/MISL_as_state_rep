@@ -120,7 +120,7 @@ class CICAgent(DDPGAgent):
         self.rew_type = rew_type
         self.update_rep = update_rep
         kwargs["meta_dim"] = self.skill_dim
-        kwargs["update_encoder"] = None
+        kwargs["update_encoder"] = True
         # create actor and critic
         
 
@@ -224,7 +224,7 @@ class CICAgent(DDPGAgent):
             if self.update_rep:
                 metrics.update(self.update_cic(obs, skill, next_obs, step))
 
-            intr_reward = self.compute_apt_reward(next_obs,next_obs)
+            intr_reward = self.compute_apt_reward(obs,next_obs)
 
             reward = intr_reward
         else:
@@ -233,7 +233,7 @@ class CICAgent(DDPGAgent):
         if self.use_tb or self.use_wandb:
             if self.reward_free:
                 metrics['extr_reward'] = extr_reward.mean().item()
-                metrics['intr_reward'] = apt_reward.mean().item()
+                metrics['intr_reward'] = intr_reward.mean().item()
             metrics['batch_reward'] = reward.mean().item()
 
         # extend observations with skill
