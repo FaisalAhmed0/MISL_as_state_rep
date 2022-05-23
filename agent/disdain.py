@@ -37,7 +37,7 @@ class DISDAIN(nn.Module):
         predictions = torch.zeros((obs.shape[0], self.skill_dim)).to('cuda')
         for i in range(self.ensemble_size):
             skill_pred = self.disc_models[i](obs)
-            predictions += skill_pred
+            predictions += torch.softmax(skill_pred, dim=-1)
         return predictions/self.ensemble_size
     
     def loss(self, next_obs, skill, idx):
@@ -128,7 +128,8 @@ class DISDAINAgent(DDPGAgent):
             metrics['disdain_acc'] = df_accuracy
 
         return metrics
-
+    
+    @torch.no_grad()
     def compute_intr_reward(self, skill, next_obs, step):
         z_hat = torch.argmax(skill, dim=1)
         d_pred = self.disdain(next_obs.to(self.device))
@@ -163,18 +164,17 @@ class DISDAINAgent(DDPGAgent):
     def compute_disdain_reward(self, next_state, skill):
         # entropy of the mean discriminator
         prediction = self.disdain(next_state)
-        mean_pred_probs = torch.softmax(prediction, dim=1)
-        mean_pred_logprobs = torch.log_softmax(prediction, dim=1)
-        term1 = torch.sum(mean_pred_logprobs * mean_pred_probs, dim=1)
+        mean_pred_probs = prediction
+        mean_pred_logprobs = torch.log(prediction)
+        term1 = -torch.sum(mean_pred_logprobs * mean_pred_probs, dim=-1)
         # mean of the entropies
         # calulate the entropy for each model
         sum_of_entropies = torch.zeros((next_state.shape[0], )).to(self.device)
         for model in self.disdain.disc_models:
             prediction = model(next_state)
-            pred_probs = torch.softmax(prediction, dim=1)
-            pred_logprobs = torch.log_softmax(prediction, dim=1)
-            print()
-            sum_of_entropies += ( torch.sum(pred_probs * pred_logprobs, dim=1) )
+            pred_probs = torch.softmax(prediction, dim=-1)
+            pred_logprobs = torch.log_softmax(prediction, dim=-1)
+            sum_of_entropies += ( -torch.sum(pred_probs * pred_logprobs, dim=-1) )
         term2 = sum_of_entropies/self.disdain.ensemble_size
         r = term1 - term2
         return r.reshape(-1, 1)
@@ -201,8 +201,8 @@ class DISDAINAgent(DDPGAgent):
         if self.reward_free:
             metrics.update(self.update_diayn(skill, next_obs, step))
 
-            with torch.no_grad():
-                intr_reward = self.compute_intr_reward(skill, next_obs, step)
+#             with torch.no_grad():
+            intr_reward = self.compute_intr_reward(skill, next_obs, step)
 
             if self.use_tb or self.use_wandb:
                 metrics['intr_reward'] = intr_reward.mean().item()

@@ -8,16 +8,16 @@ reward_free: true
 domain: walker # primal task will be infered in runtime
 obs_type: pixels # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
-action_repeat: 1 # set to 2 for pixels
+action_repeat: 2 # set to 2 for pixels
 discount: 0.99
 # train settings
-num_train_frames: 2000010
+num_train_frames: 5000010
 num_seed_frames: 4000
 # eval
 eval_every_frames: 10000
 num_eval_episodes: 10
 # snapshot
-snapshots: [100000, 500000, 1000000, 2000000] # [99849,499992,999984,1999968] # 
+snapshots: [100000, 500000, 1000000, 2000000, 5000000] # [99849,499992,999984,1999968] # 
 # snapshot_dir: ../../../pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
 snapshot_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
 # replay buffer
