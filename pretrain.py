@@ -47,8 +47,8 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.domain,cfg.obs_type,str(cfg.seed), '250', '0.005', '2'])
-            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": 250, "tau" :0.001, 'action_rep':2}
+            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.domain,cfg.obs_type,str(cfg.seed), 'default hyperparams', 'pxiels_fixed_encoder'])
+            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": 1024, "tau" :0.01, 'action_rep':2}
             wandb.init(project="cic_pretrain",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
 
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb,use_wandb=cfg.use_wandb)

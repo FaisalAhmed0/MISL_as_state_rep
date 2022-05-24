@@ -130,7 +130,7 @@ class DISDAINAgent(DDPGAgent):
         return metrics
     
     @torch.no_grad()
-    def compute_intr_reward(self, skill, next_obs, step):
+    def compute_intr_reward(self, skill, next_obs, step, metrics):
         z_hat = torch.argmax(skill, dim=1)
         d_pred = self.disdain(next_obs.to(self.device))
         d_pred_log_softmax = F.log_softmax(d_pred, dim=1)
@@ -140,7 +140,8 @@ class DISDAINAgent(DDPGAgent):
         reward = reward.reshape(-1, 1)
         
         r_disdain = self.compute_disdain_reward(next_obs.to(self.device), skill.to(self.device)) * self.disdain_scale
-        
+        metrics['disdain_reward'] = r_disdain.mean().cpu()
+        metrics['diayn_reward'] = reward.mean().cpu()
         return (reward + r_disdain) * self.diayn_scale
 
 #     def compute_diayn_loss(self, next_state, skill):
@@ -194,15 +195,15 @@ class DISDAINAgent(DDPGAgent):
             batch, self.device)
 
         # augment and encode
+        obs = self.aug_and_encode(obs)
         with torch.no_grad():
-            obs = self.aug_and_encode(obs)
             next_obs = self.aug_and_encode(next_obs)
 
         if self.reward_free:
             metrics.update(self.update_diayn(skill, next_obs, step))
 
 #             with torch.no_grad():
-            intr_reward = self.compute_intr_reward(skill, next_obs, step)
+            intr_reward = self.compute_intr_reward(skill, next_obs, step, metrics)
 
             if self.use_tb or self.use_wandb:
                 metrics['intr_reward'] = intr_reward.mean().item()
@@ -224,7 +225,7 @@ class DISDAINAgent(DDPGAgent):
 
         # update critic
         metrics.update(
-            self.update_critic(obs.detach(), action, reward, discount,
+            self.update_critic(obs, action, reward, discount,
                                next_obs.detach(), step))
 
         # update actor

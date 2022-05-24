@@ -54,6 +54,7 @@ class Actor(nn.Module):
         self.policy = nn.Sequential(*policy_layers)
 
         self.apply(utils.weight_init)
+        
 
     def forward(self, obs, std):
         h = self.trunk(obs)
@@ -182,11 +183,17 @@ class DDPGAgent:
             self.encoder_opt = None
             if state_encoder and update_state_encoder:
                 self.misl_encoder_opt = torch.optim.Adam(self.misl_state_encoder.parameters(), lr=lr)
+                
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
 
         self.train()
         self.critic_target.train()
+        
+        print(f"Actor:{self.actor}")
+        print(f"critic:{self.critic}")
+#         import sys
+#         sys.exit()
 
     def train(self, training=True):
         self.training = training

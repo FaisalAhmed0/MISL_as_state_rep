@@ -215,16 +215,15 @@ class CICAgent(DDPGAgent):
         obs, action, extr_reward, discount, next_obs, skill = utils.to_torch(
             batch, self.device)
 
+        obs = self.aug_and_encode(obs)
         with torch.no_grad():
-            obs = self.aug_and_encode(obs)
-        
             next_obs = self.aug_and_encode(next_obs)
 
         if self.reward_free:
             if self.update_rep:
-                metrics.update(self.update_cic(obs, skill, next_obs, step))
+                metrics.update(self.update_cic(obs.detach(), skill, next_obs, step))
 
-            intr_reward = self.compute_apt_reward(obs,next_obs)
+            intr_reward = self.compute_apt_reward(obs.detach(),next_obs)
 
             reward = intr_reward
         else:
@@ -245,7 +244,7 @@ class CICAgent(DDPGAgent):
             self.update_critic(obs, action, reward, discount, next_obs, step))
 
         # update actor
-        metrics.update(self.update_actor(obs, step))
+        metrics.update(self.update_actor(obs.detach(), step))
 
         # update critic target
         utils.soft_update_params(self.critic, self.critic_target,
