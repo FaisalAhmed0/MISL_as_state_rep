@@ -32,7 +32,7 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_stat
         with open(f"/home/bethge/fmohamed65/MISL_as_state_rep/agent/{encode_state}.yaml") as f:
             file = yaml.safe_load(f)
         if encode_state != "none" and obs_type!="pixels":
-            cfg.obs_shape = int(file['skill_dim'])
+            cfg.obs_shape =  obs_spec.shape
             cfg.meta_dim = 0
         else:
             cfg.obs_shape = obs_spec.shape
@@ -54,11 +54,11 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = f"{cfg.pretrained_agent}_{cfg.task}_seed_{cfg.seed}_update_encoder_{cfg.update_state_encoder}_update_cnn_encoder_{cfg.update_encoder}"
-            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.state_encoder, "update_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder}
+            exp_name = cfg.experiment
+            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
-            wandb.init(project="cic_finetune__2",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams)
+            wandb.init(project="cic_finetune__2",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='fork'))
 
         # create logger
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
@@ -107,7 +107,7 @@ class Workspace:
                 lr = float(file['lr'])
                 self.agent.misl_encoder_opt = torch.optim.Adam(self.agent.misl_state_encoder.parameters(), lr=lr)
                 self.agent.misl_state_encoder.train(self.agent.training)
-            if cfg.update_encoder:
+            if cfg.update_encoder and cfg.obs_type == "pixels":
                 with open("/home/bethge/fmohamed65/MISL_as_state_rep/agent/ddpg.yaml") as f:
                       file = yaml.safe_load(f)
                 lr = float(file['lr'])

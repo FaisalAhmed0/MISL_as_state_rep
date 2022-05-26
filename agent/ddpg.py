@@ -159,7 +159,9 @@ class DDPGAgent:
             self.aug = nn.Identity()
             self.encoder = nn.Identity()
             if state_encoder != "none":
+#                 print(f"state encoder: {state_encoder}")
                 self.misl_state_encoder = state_encoder
+#             print(f"obs:{obs.shape}")
             self.obs_dim = obs_shape[0] + meta_dim
 
         self.actor = Actor(obs_type, self.obs_dim, self.action_dim,
@@ -181,8 +183,8 @@ class DDPGAgent:
                 self.encoder_opt = None
         else:
             self.encoder_opt = None
-            if state_encoder and update_state_encoder:
-                self.misl_encoder_opt = torch.optim.Adam(self.misl_state_encoder.parameters(), lr=lr)
+#             if state_encoder and update_state_encoder:
+#                 self.misl_encoder_opt = torch.optim.Adam(self.misl_state_encoder.parameters(), lr=lr)
                 
         self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)

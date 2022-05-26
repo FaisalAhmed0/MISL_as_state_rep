@@ -36,6 +36,7 @@ use_wandb: true
 # experiment
 experiment: exp
 data_folder: none
+uid: none
 
 
 hydra:
