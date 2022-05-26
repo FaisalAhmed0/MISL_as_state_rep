@@ -111,7 +111,7 @@ def compute_apt_reward(source, target, args):
 class CICAgent(DDPGAgent):
     # Contrastive Intrinsic Control (CIC)
     def __init__(self, update_skill_every_step, skill_dim, scale, 
-                    project_skill, rew_type, update_rep, temp, **kwargs):
+                    project_skill, rew_type, update_rep, temp, entropy_coef, **kwargs):
         self.temp = temp
         self.skill_dim = skill_dim
         self.update_skill_every_step = update_skill_every_step
@@ -121,6 +121,7 @@ class CICAgent(DDPGAgent):
         self.update_rep = update_rep
         kwargs["meta_dim"] = self.skill_dim
         kwargs["update_encoder"] = True
+        kwargs['entropy_coef'] = entropy_coef
         # create actor and critic
         
 

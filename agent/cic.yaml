@@ -26,3 +26,4 @@ init_critic: true
 rew_type: og
 update_rep: true 
 temp: 0.5
+entropy_coef: 0.1

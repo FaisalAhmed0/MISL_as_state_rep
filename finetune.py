@@ -54,7 +54,7 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = cfg.experiment
+            exp_name = cfg.data_folder
             hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")

@@ -20,6 +20,7 @@ from logger import Logger
 from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb
+from omegaconf import OmegaConf
 
 torch.backends.cudnn.benchmark = True
 
@@ -44,12 +45,14 @@ class Workspace:
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
+        with open(os.path.join(self.work_dir, 'config.yaml'), 'w') as f:
+            f.write(OmegaConf.to_yaml(cfg))
 
         # create logger
         if cfg.use_wandb:
-            exp_name = '_'.join([cfg.experiment,cfg.agent.name,cfg.domain,cfg.obs_type,str(cfg.seed), 'default hyperparams', 'pxiels_fixed_encoder'])
-            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": 1024, "tau" :0.01, 'action_rep':2}
-            wandb.init(project="cic_pretrain",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
+            exp_name = cfg.data_folder
+            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": cfg['agent']['feature_dim'], "tau" :cfg['agent']['critic_target_tau'], 'action_rep':cfg.action_repeat, 'entropy_coef':cfg['agent']['entropy_coef']}
+            wandb.init(project="cic_pretrain_2",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
 
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb,use_wandb=cfg.use_wandb)
         # create envs

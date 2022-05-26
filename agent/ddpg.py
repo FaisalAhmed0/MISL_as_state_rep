@@ -124,7 +124,7 @@ class DDPGAgent:
     def __init__(self, name, reward_free, obs_type, obs_shape, action_shape,
                  device, lr, feature_dim, hidden_dim, critic_target_tau,
                  num_expl_steps, update_every_steps, stddev_schedule, nstep,
-                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, meta_dim=0, state_encoder="none", update_state_encoder=False):
+                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, entropy_coef ,meta_dim=0, state_encoder="none", update_state_encoder=False):
         self.reward_free = reward_free
         self.obs_type = obs_type
         self.action_dim = action_shape[0]
@@ -147,6 +147,7 @@ class DDPGAgent:
         self.batch = None
         self.use_state_encoder = state_encoder
         self.misl_state_encoder = None
+        self.entropy_coef = entropy_coef
 
         # models
         if obs_type == 'pixels':
@@ -253,8 +254,15 @@ class DDPGAgent:
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
             next_action = dist.sample(clip=self.stddev_clip)
+            neg_entropy =  torch.sum(dist.log_prob(next_action), dim=1).reshape(-1, 1)
+            print(f"ebtropy: {neg_entropy}")
+            print(f"entropy shape: {neg_entropy.shape}")
             target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
-            target_V = torch.min(target_Q1, target_Q2)
+            # add entropy regularizor
+            target_Q1 = target_Q1 - self.entropy_coef * neg_entropy
+            target_Q2 = target_Q2 - self.entropy_coef * neg_entropy
+            
+            target_V = torch.min(target_Q1, target_Q2) - neg_entropy
             target_Q = reward + (discount * target_V)
 
         Q1, Q2 = self.critic(obs, action)
@@ -295,8 +303,9 @@ class DDPGAgent:
         Q1, Q2 = self.critic(obs, action)
         Q = torch.min(Q1, Q2)
 
+#         actor_loss = -Q.mean()
+        # with entopry
         actor_loss = -Q.mean()
-
         # optimize actor
         self.actor_opt.zero_grad(set_to_none=True)
         actor_loss.backward()

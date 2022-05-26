@@ -22,3 +22,4 @@ init_critic: true
 update_encoder: ${update_encoder}
 state_encoder: ${state_encoder}
 meta_dim: ???
+entropy_coef: 0
