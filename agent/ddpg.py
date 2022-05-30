@@ -254,15 +254,9 @@ class DDPGAgent:
             stddev = utils.schedule(self.stddev_schedule, step)
             dist = self.actor(next_obs, stddev)
             next_action = dist.sample(clip=self.stddev_clip)
-            neg_entropy =  torch.sum(dist.log_prob(next_action), dim=1).reshape(-1, 1)
-            print(f"ebtropy: {neg_entropy}")
-            print(f"entropy shape: {neg_entropy.shape}")
+            neg_entropy = torch.sum(dist.log_prob(next_action), dim=1).reshape(-1, 1)
             target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
-            # add entropy regularizor
-            target_Q1 = target_Q1 - self.entropy_coef * neg_entropy
-            target_Q2 = target_Q2 - self.entropy_coef * neg_entropy
-            
-            target_V = torch.min(target_Q1, target_Q2) - neg_entropy
+            target_V = torch.min(target_Q1, target_Q2) - self.entropy_coef * neg_entropy
             target_Q = reward + (discount * target_V)
 
         Q1, Q2 = self.critic(obs, action)

@@ -22,13 +22,13 @@ class CIC(nn.Module):
     
         self.state_net = nn.Sequential(nn.Linear(self.obs_dim, hidden_dim), nn.ReLU(), 
                                         nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), 
-                                        nn.Linear(hidden_dim, self.obs_dim))
+                                        nn.Linear(hidden_dim, self.skill_dim))
 
         self.next_state_net = nn.Sequential(nn.Linear(self.obs_dim, hidden_dim), nn.ReLU(), 
                                         nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), 
                                         nn.Linear(hidden_dim, self.skill_dim))
 
-        self.pred_net = nn.Sequential(nn.Linear(2 * self.obs_dim, hidden_dim), nn.ReLU(), 
+        self.pred_net = nn.Sequential(nn.Linear(2 * self.skill_dim, hidden_dim), nn.ReLU(), 
                                         nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), 
                                         nn.Linear(hidden_dim, self.skill_dim))
 
