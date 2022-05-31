@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import IterableDataset
 import os
+import shutil
 
 
 def episode_len(episode):
@@ -22,10 +23,8 @@ def save_episode(episode, fn, fn2):
         bs.seek(0)
         with fn.open('wb') as f:
             f.write(bs.read())
-        with fn2.open('wb') as f:
-            f.write(bs.read())
-
-
+        shutil.copyfile(fn, fn2)
+            
 
 def load_episode(fn):
     with fn.open('rb') as f:

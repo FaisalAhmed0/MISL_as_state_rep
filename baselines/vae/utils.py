@@ -136,9 +136,7 @@ def train(model, optimizer, epochs, dataloader, plot_freq=10, save_plots=True, h
                 filename = f"{path}/output_grid.png"
                 plt.savefig(filename)
                 if log:
-                    wandb_image_t = wandb.Image(target_grid, caption="Original Images")
-                    wandb_image_o = wandb.Image(output_grid, caption="Generated Images")
-                    wandb.log({"generated_images": wandb_image_o, "original_images": wandb_image_t})
+                    wandb.log({"train/generated_images": wandb.Image(output_grid), "train/original_images": wandb.Image(target_grid)})
                     wandb.log({"epoch_loss": epoch_loss})
 
             # save the model
