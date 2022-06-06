@@ -39,6 +39,8 @@ num_bootstrap_updates: 10000
 state_encoder: none # Values: none, cic, diayn
 update_state_encoder: false 
 data_folder: none
+uid: none
+entropy: 1
 
 hydra:
   run:

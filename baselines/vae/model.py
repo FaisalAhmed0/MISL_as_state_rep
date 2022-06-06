@@ -1,5 +1,5 @@
 '''
-This file contains a convolutional VAE model
+Convolutional VAE model
 '''
 import torch
 import torch.nn as nn

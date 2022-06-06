@@ -44,16 +44,23 @@ class CustomTensorDataset(Dataset):
 
 
 
-# TODO: modfiy this for multiple npz files (multiple episodes)
 def extract_data(path):
-    data = np.load(path)
-    obs = torch.tensor(data['observation']).to(torch.float32).to(cfg.device)
+    observatiobs = []
+    files_names = os.listdir(path)
+    length = 0
+    for f in files_names:
+        data = np.load(f"{path}/{f}")
+        obs = torch.tensor(data['observation']).to(torch.float32).to(cfg.device)
+        length += obs.shape[0]
+        if length < 10000:
+            observations.append(obs)
+        else:
+            break
+    observations = torch.cat((observations), dim=0)
     # put the tensors in a dataset
     norm = transforms.Normalize([0.5]*9, [255]*9)
-    print(f"obs shape: {obs.shape}")
     y = torch.randn(obs.shape[0])
     dmc_dataset = CustomTensorDataset((obs, y), norm)
-#     dmc_dataset = TensorDataset(obs, y)
     dmc = DataLoader(dmc_dataset, batch_size=cfg.batch_size)
     return dmc_dataset, dmc
 
