@@ -51,11 +51,14 @@ class Workspace:
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
-
+        print(f"obs type: {self.cfg.obs_type}")
+        print(type(cfg))
+        print(cfg["agent"])
+        print(type(cfg["agent"]))
         # create logger
         if cfg.use_wandb:
             exp_name = cfg.data_folder
-            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid, "entropy": cfg.entropy}
+            hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid, "skill_dim": cfg.entropy}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
             wandb.init(project="CIC_hyperparametrs_search",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='thread'))
@@ -276,7 +279,10 @@ class Workspace:
 
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
-        domain, _ = self.cfg.task.split('_', 1)
+        if "ball_in_cup" in self.cfg.task:
+            domain = "ball_in_cup"
+        else:
+            domain, _ = self.cfg.task.split('_', 1)
         snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.pretrained_agent / self.cfg.experiment
         
         if self.cfg.snapshot_name != 'none':

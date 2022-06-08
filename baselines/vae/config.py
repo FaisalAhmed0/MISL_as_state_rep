@@ -13,7 +13,7 @@ bottleneck = 1024,
 # weight for the KL loss
 kl_wight = 1,
 # number of epochs
-epochs = 500,
+epochs = 1000,
 # device
 device = 'cuda'
 )

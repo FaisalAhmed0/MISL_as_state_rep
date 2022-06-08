@@ -21,6 +21,13 @@ import os
 from config import cfg
 import wandb
 
+
+def seed_everything(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.random.manual_seed(seed)
+    
+
 class CustomTensorDataset(Dataset):
     # From https://stackoverflow.com/questions/55588201/pytorch-transforms-on-tensordataset
     """TensorDataset with support of transforms.
@@ -45,23 +52,25 @@ class CustomTensorDataset(Dataset):
 
 
 def extract_data(path):
-    observatiobs = []
+    observations = []
     files_names = os.listdir(path)
     length = 0
+    print(f"file names: {files_names}")
     for f in files_names:
-        data = np.load(f"{path}/{f}")
-        obs = torch.tensor(data['observation']).to(torch.float32).to(cfg.device)
-        length += obs.shape[0]
-        if length < 10000:
-            observations.append(obs)
-        else:
-            break
+        if ".npz" in f:
+            data = np.load(f"{path}/{f}")
+            obs = torch.tensor(data['observation']).to(torch.float32).to(cfg.device)
+            length += obs.shape[0]
+            if length < 20000:
+                observations.append(obs)
+            else:
+                break
     observations = torch.cat((observations), dim=0)
     # put the tensors in a dataset
     norm = transforms.Normalize([0.5]*9, [255]*9)
-    y = torch.randn(obs.shape[0])
-    dmc_dataset = CustomTensorDataset((obs, y), norm)
-    dmc = DataLoader(dmc_dataset, batch_size=cfg.batch_size)
+    y = torch.randn(observations.shape[0])
+    dmc_dataset = CustomTensorDataset((observations, y), norm)
+    dmc = DataLoader(dmc_dataset, batch_size=cfg.batch_size, shuffle=True)
     return dmc_dataset, dmc
 
 # load cifar10 for testing purposes

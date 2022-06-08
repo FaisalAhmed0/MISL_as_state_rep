@@ -6,7 +6,7 @@ pretrained_agent: cic
 reward_free: false
 # task settings
 task: walker_stand
-obs_type: states # [states, pixels]
+obs_type: pixels # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 2 # set to 2 for pixels
 discount: 0.99
@@ -17,7 +17,7 @@ num_seed_frames: 4000
 eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
-snapshot_ts: 100000 # make -1 do disable pre-trained initlization
+snapshot_ts: 1000000 # make -1 do disable pre-trained initlization
 snapshot_base_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models
 snapshot_name: none
 replay_buffer_size: 1000000
@@ -36,11 +36,11 @@ use_wandb: true
 experiment: exp
 num_bootstrap_updates: 10000
 # use the state encoder from either CIC or DIAYN
-state_encoder: none # Values: none, cic, diayn
+state_encoder: cic # Values: none, cic, diayn
 update_state_encoder: false 
 data_folder: none
 uid: none
-entropy: 1
+entropy: 8
 
 hydra:
   run:
