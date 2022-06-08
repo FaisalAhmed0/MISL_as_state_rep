@@ -41,7 +41,6 @@ def cmd_args():
 def run(args):
     environment = args.env
     print(f"enviornment: {environment}")
-    base_dir = "/home/bethge/fmohamed65/MISL_as_state_rep/baselines/vae"
     base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/vae"
     base_data_dir = "/mnt/qb/work/bethge/fmohamed65"
     data_path = f"{base_data_dir}/exp_local/{args.data}/buffer/saved"

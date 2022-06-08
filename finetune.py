@@ -61,7 +61,7 @@ class Workspace:
             hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid, "skill_dim": cfg.entropy}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
-            wandb.init(project="CIC_hyperparametrs_search",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='thread'))
+            wandb.init(project="vae_finetune",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='thread'))
             print("Connected to wandb")
 
         # create logger
@@ -91,6 +91,22 @@ class Workspace:
                 self.pixel_encoder = pretrained_agent.encoder
                 print(f"pixel cnoder: {pretrained_agent.encoder}")
                 self.agent.encoder = self.pixel_encoder
+                # TODO: Initlize the encoder from simclr or vae
+                # load the pre-trained encoder
+                # copy the weights to the DrQ encoder
+                if "ball_in_cup" in self.cfg.task:
+                    domain = "ball_in_cup"
+                else:
+                    domain, _ = self.cfg.task.split('_', 1)
+                if cfg.pretrained_encoder == "vae":
+                    base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/vae"
+                    model_file = f"{base_dir}/{domain}/vae.ckpt"
+                    self.agent.encoder.load_state_dict(torch.load(model_file))
+                    print("VAE loaded successfully")
+                elif cfg.pretrained_encoder == "cl":
+                    base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/contrastive"
+                    model_file = f"{base_dir}/{domain}/cl.ckpt"
+                    self.agent.encoder.load_state_dict(torch.load(model_file))
             # load the misl state encoder
             if cfg.state_encoder == "cic":
                 self.state_encoder = pretrained_agent.cic.state_net

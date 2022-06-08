@@ -17,7 +17,7 @@ num_seed_frames: 4000
 eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
-snapshot_ts: 1000000 # make -1 do disable pre-trained initlization
+snapshot_ts: -1 # make -1 do disable pre-trained initlization
 snapshot_base_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models
 snapshot_name: none
 replay_buffer_size: 1000000
@@ -25,6 +25,7 @@ replay_buffer_num_workers: 4
 batch_size: ${agent.batch_size}
 nstep: ${agent.nstep}
 update_encoder: true # can be either true or false depending if we want to fine-tune encoder
+pretrained_encoder: vae # can be either none vae or cl
 # misc
 seed: 1
 device: cuda
@@ -36,11 +37,11 @@ use_wandb: true
 experiment: exp
 num_bootstrap_updates: 10000
 # use the state encoder from either CIC or DIAYN
-state_encoder: cic # Values: none, cic, diayn
+state_encoder: none # Values: none, cic, diayn
 update_state_encoder: false 
 data_folder: none
 uid: none
-entropy: 8
+entropy: 64
 
 hydra:
   run:
