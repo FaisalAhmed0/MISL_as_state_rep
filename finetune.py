@@ -12,6 +12,7 @@ from copy import deepcopy
 import hydra
 import numpy as np
 import torch
+import torch.nn as nn
 from dm_env import specs
 
 import dmc
@@ -61,7 +62,7 @@ class Workspace:
             hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid, "skill_dim": cfg.entropy}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
-            wandb.init(project="vae_finetune",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='thread'))
+            wandb.init(project="cic_finetune_final",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='fork'))
             print("Connected to wandb")
 
         # create logger
@@ -90,7 +91,7 @@ class Workspace:
             if cfg.obs_type == "pixels":
                 self.pixel_encoder = pretrained_agent.encoder
                 print(f"pixel cnoder: {pretrained_agent.encoder}")
-                self.agent.encoder = self.pixel_encoder
+                self.agent.encoder.load_state_dict(self.pixel_encoder.state_dict())
                 # TODO: Initlize the encoder from simclr or vae
                 # load the pre-trained encoder
                 # copy the weights to the DrQ encoder
@@ -115,7 +116,10 @@ class Workspace:
                 self.state_encoder = pretrained_agent.diayn.state_net    
             # load the state encoder on the DDPG agent
             if cfg.state_encoder != "none":
-                self.agent.misl_state_encoder = self.state_encoder
+                self.agent.misl_state_encoder = nn.Sequential(nn.Linear(39200, cfg['agent']['hidden_dim']), nn.ReLU(), 
+                nn.Linear(cfg['agent']['hidden_dim'], cfg['agent']['hidden_dim']), nn.ReLU(), 
+                nn.Linear(cfg['agent']['hidden_dim'], 64)).to('cuda')
+                self.agent.misl_state_encoder.load_state_dict(self.state_encoder.state_dict())
                 self.agent.finetune_state_encoder = cfg.update_state_encoder
                 self.agent.misl_encoder_opt = None
             # create an optimizer for the state encoder if required

@@ -71,6 +71,11 @@ class Workspace:
                                 cfg.num_seed_frames // cfg.action_repeat,
                                 cfg.agent)
 
+        if cfg.snapshot > -1:
+            pretrained_agent = self.load_snapshot()['agent']
+            self.agent = pretrained_agent
+            print("Snapshot loaded")
+            
         # get meta specs
         meta_specs = self.agent.get_meta_specs()
         # create replay buffer
@@ -139,6 +144,9 @@ class Workspace:
                 self.video_recorder.record(self.eval_env)
                 total_reward += time_step.reward
                 step += 1
+#                 print(f"Global frame:{self.global_frame}")
+#                 print(f"action: {action}")
+#                 print(f"meta: {meta}")
 
             episode += 1
             self.video_recorder.save(f'{self.global_frame}.mp4')
@@ -231,10 +239,22 @@ class Workspace:
         payload = {k: self.__dict__[k] for k in keys_to_save}
         with snapshot.open('wb') as f:
             torch.save(payload, f)
+            
+            
+    def load_snapshot(self):
+        snapshot_base_dir = Path(self.cfg.snapshotfile_dir)
+        domain = self.cfg.domain
+        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / "cic" / "invs_rep_cic_quadruped_pixels_seed_1_uid_1654902822.63" / "snapshot_2000000_invs_rep_cic_quadruped_pixels_seed_1_uid_1654902822.63.pt"
+        print(f"snapshot path: {snapshot_dir}")
+        with snapshot_dir.open('rb') as f:
+            payload = torch.load(f)
+        return payload
 
 
 @hydra.main(config_path='.', config_name='pretrain')
 def main(cfg):
+    import multiprocessing
+    multiprocessing.set_start_method('spawn')
     from pretrain import Workspace as W
 #     print(cfg)
 #     import sys

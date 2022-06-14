@@ -26,6 +26,7 @@ class Encoder(nn.Module):
     
 
 # SimClr
+# From https://github.com/amro-kamal/SimCLR-Implementation/tree/7602345c43590cc1a2f998966de61a04d96dc978
 class SimCLR(nn.Module):
     def __init__(self, temp, cnn_encoder, in_channels, img_shape):
         super().__init__()
@@ -35,7 +36,7 @@ class SimCLR(nn.Module):
         # self.resnet_backbone.fc = nn.Identity()
         self.projector = nn.Sequential(nn.Linear(self.cnn_backbone.repr_dim,1024),
                                               nn.ReLU(),
-                                              nn.Linear(1024,64))
+                                              nn.Linear(1024,cfg.latent_size))
         
         self.CEL = nn.CrossEntropyLoss(reduction="mean")
     def forward(self, x1, x2=None):
