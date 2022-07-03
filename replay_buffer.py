@@ -23,7 +23,7 @@ def save_episode(episode, fn, fn2):
         bs.seek(0)
         with fn.open('wb') as f:
             f.write(bs.read())
-        shutil.copyfile(fn, fn2)
+#         shutil.copyfile(fn, fn2)
             
 
 def load_episode(fn):

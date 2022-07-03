@@ -100,7 +100,9 @@ def plot_grid(dataloader, batch=64, name="cifar", path="."):
 def vae_loss(output, target, mu, logvar):
     kl_divergence = 0.5 * torch.sum(-1 - logvar + mu.pow(2) + logvar.exp())
 #     loss = F.mse_loss(output, target, size_average=False) + kl_divergence
+#     print(f"kl size: {kl_divergence.shape}")
     loss = F.binary_cross_entropy(output, target, size_average=False) + kl_divergence
+#     print(f"loss size: {loss.shape}")
     return loss
 
 # train function to fit the VAE
@@ -114,6 +116,7 @@ def train(model, optimizer, epochs, dataloader, plot_freq=10, save_plots=True, h
             img = img.to(cfg.device)
             output, mu, logvar = model(img)
             loss = vae_loss(output, img, mu, logvar)
+            print(loss)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

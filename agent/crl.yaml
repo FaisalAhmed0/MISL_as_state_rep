@@ -16,11 +16,12 @@ feature_dim: 50
 stddev_schedule: 0.2
 stddev_clip: 0.3
 nstep: 3
-batch_size: 256 # 256 for pixels
+batch_size: 1024 # 256 for pixels
 init_critic: true
 update_encoder: ${update_encoder}
-skill_dim: 64
+skill_dim: 0
 temp: 0.07
 entropy_coef: 0
-latent_size: 128
+latent_size: 64
 objective: SimClr
+update_skill_every_step: 50

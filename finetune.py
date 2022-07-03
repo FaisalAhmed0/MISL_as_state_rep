@@ -5,7 +5,8 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
-os.environ['MUJOCO_GL'] = 'egl'
+os.environ['MUJOCO_GL'] = 'egl' # for GPU
+# os.environ['MUJOCO_GL'] = 'glfw'  # for CPU
 
 from pathlib import Path
 from copy import deepcopy
@@ -13,6 +14,7 @@ import hydra
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from dm_env import specs
 
 import dmc
@@ -22,14 +24,26 @@ from replay_buffer import ReplayBufferStorage, make_replay_loader
 from video import TrainVideoRecorder, VideoRecorder
 import wandb 
 import yaml
+from omegaconf import OmegaConf
 
 torch.backends.cudnn.benchmark = True
 
+class APS_encoder(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.model = nn.Sequential(nn.Linear(39200, cfg['agent']['hidden_dim']), nn.ReLU(), 
+                nn.Linear(cfg['agent']['hidden_dim'], cfg['agent']['hidden_dim']), nn.ReLU(), 
+                nn.Linear(cfg['agent']['hidden_dim'], 25))
+    def forward(self, x):
+        x = self.model(x)
+#         x = F.normalize(x, dim=-1)
+        return x
+        
 
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_state=None):
     cfg.obs_type = obs_type
     print(f"current path {Path.cwd()}")
-    if encode_state != "none":
+    if encode_state in ["cic", "aps"]:
         with open(f"/home/bethge/fmohamed65/MISL_as_state_rep/agent/{encode_state}.yaml") as f:
             file = yaml.safe_load(f)
         if encode_state != "none" and obs_type!="pixels":
@@ -37,7 +51,10 @@ def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg, encode_stat
             cfg.meta_dim = 0
         else:
             cfg.obs_shape = obs_spec.shape
-            cfg.meta_dim = int(file['skill_dim'])
+            if encode_state == "cic":
+                cfg.meta_dim = int(file['skill_dim'])
+            elif encode_state == "aps":
+                cfg.meta_dim = int(file['sf_dim'])
     else:
         cfg.obs_shape = obs_spec.shape
         cfg.meta_dim = 0
@@ -56,13 +73,17 @@ class Workspace:
         print(type(cfg))
         print(cfg["agent"])
         print(type(cfg["agent"]))
+        utils.set_seed_everywhere(cfg.seed)
+        self.device = torch.device(cfg.device)
+        with open(os.path.join(self.work_dir, 'config.yaml'), 'w') as f:
+            f.write(OmegaConf.to_yaml(cfg))
         # create logger
         if cfg.use_wandb:
             exp_name = cfg.data_folder
             hyperparams = {"lr": cfg["agent"]["lr"], "batch_size": cfg["agent"]["batch_size"], "tau": cfg["agent"]["critic_target_tau"], "feature_dim": cfg["agent"]["feature_dim"], "task": cfg.task, "seed": cfg.seed, "pretraining": cfg.pretrained_agent, "update_state_encoder": cfg.update_state_encoder, "obs_type":cfg.obs_type, "update_cnn_encoder": cfg.update_encoder, "state_encoder": cfg.state_encoder, "uid":cfg.uid, "skill_dim": cfg.entropy}
             print(f"exp_name:{exp_name}")
             print(f"hyper:{hyperparams}")
-            wandb.init(project="cic_finetune_final",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='fork'))
+            wandb.init(project="DrQ",group=cfg.agent.name + '-ft',name=exp_name, config=hyperparams, settings=wandb.Settings(start_method='fork'))
             print("Connected to wandb")
 
         # create logger
@@ -84,6 +105,33 @@ class Workspace:
         
             
         # check for using the state encoder
+        if "ball_in_cup" in self.cfg.task:
+            domain = "ball_in_cup"
+        else:
+            domain, _ = self.cfg.task.split('_', 1)
+        if cfg.pretrained_encoder == "vae":
+            base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/vae"
+            model_file = f"{base_dir}/quad/vae.ckpt"
+            model_state_dict = torch.load(model_file)
+            print(f"model state: {model_state_dict}")
+            cnn_keys = [f"encoder.{a}.{b}" for a,b in [(0,"weight"), (0,"bias"), (2,"weight"), (2,"bias"), (4,"weight"), (4,"bias"), (6,"weight"), (6,"bias")] ]
+            cnn_dict = {cnn_keys[i].replace("encoder", "convnet"):model_state_dict[cnn_keys[i]] for i in range(len(cnn_keys))}
+            self.agent.encoder.load_state_dict(cnn_dict)
+            mean_dict = {"weight": model_state_dict["mean.weight"], "bias": model_state_dict["mean.bias"]}
+            state_encoder = nn.Linear(39200, 64).to(cfg.device)
+            state_encoder.load_state_dict(mean_dict)
+            self.agent.misl_state_encoder = state_encoder
+            lr = 1e-4
+            self.agent.encoder_opt = torch.optim.Adam(self.agent.encoder.parameters(), lr=lr)
+            self.agent.encoder.train(self.agent.training)
+            self.agent.misl_encoder_opt = torch.optim.Adam(self.agent.misl_state_encoder.parameters(), lr=lr)
+            self.agent.misl_state_encoder.train(self.agent.training)
+            print("VAE loaded successfully")
+        elif cfg.pretrained_encoder == "cl":
+            base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/contrastive"
+            model_file = f"{base_dir}/{domain}/cl.ckpt"
+            self.agent.encoder.load_state_dict(torch.load(model_file))
+            
         if cfg.pretrained_agent != "none" and cfg.snapshot_ts > 0:
             pretrained_agent = self.load_snapshot()['agent']
             print("pretrained agent is loaded")
@@ -95,31 +143,23 @@ class Workspace:
                 # TODO: Initlize the encoder from simclr or vae
                 # load the pre-trained encoder
                 # copy the weights to the DrQ encoder
-                if "ball_in_cup" in self.cfg.task:
-                    domain = "ball_in_cup"
-                else:
-                    domain, _ = self.cfg.task.split('_', 1)
-                if cfg.pretrained_encoder == "vae":
-                    base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/vae"
-                    model_file = f"{base_dir}/{domain}/vae.ckpt"
-                    self.agent.encoder.load_state_dict(torch.load(model_file))
-                    print("VAE loaded successfully")
-                elif cfg.pretrained_encoder == "cl":
-                    base_dir = "/mnt/qb/work/bethge/fmohamed65/MISL_as_state_rep/baselines/contrastive"
-                    model_file = f"{base_dir}/{domain}/cl.ckpt"
-                    self.agent.encoder.load_state_dict(torch.load(model_file))
             # load the misl state encoder
             if cfg.state_encoder == "cic":
+                # TODO: add an if statement for aps encoder here
                 self.state_encoder = pretrained_agent.cic.state_net
                 print("cic agent has been assigned")
             elif cfg.state_encoder == "diayn":
-                self.state_encoder = pretrained_agent.diayn.state_net    
+                self.state_encoder = pretrained_agent.diayn.state_net 
+            elif cfg.state_encoder == "aps":
+                self.state_encoder = pretrained_agent.aps.state_feat_net
+            print(f"State encoder: {self.state_encoder}")
             # load the state encoder on the DDPG agent
             if cfg.state_encoder != "none":
-                self.agent.misl_state_encoder = nn.Sequential(nn.Linear(39200, cfg['agent']['hidden_dim']), nn.ReLU(), 
-                nn.Linear(cfg['agent']['hidden_dim'], cfg['agent']['hidden_dim']), nn.ReLU(), 
-                nn.Linear(cfg['agent']['hidden_dim'], 64)).to('cuda')
-                self.agent.misl_state_encoder.load_state_dict(self.state_encoder.state_dict())
+#                 self.agent.misl_state_encoder = nn.Sequential(nn.Linear(39200, cfg['agent']['hidden_dim']), nn.ReLU(), 
+#                 nn.Linear(cfg['agent']['hidden_dim'], cfg['agent']['hidden_dim']), nn.ReLU(), 
+#                 nn.Linear(cfg['agent']['hidden_dim'], 10)).to('cuda')
+                self.agent.misl_state_encoder = APS_encoder(cfg).to("cuda")
+                self.agent.misl_state_encoder.model.load_state_dict(self.state_encoder.state_dict())
                 self.agent.finetune_state_encoder = cfg.update_state_encoder
                 self.agent.misl_encoder_opt = None
             # create an optimizer for the state encoder if required

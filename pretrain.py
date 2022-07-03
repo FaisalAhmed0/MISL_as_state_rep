@@ -50,9 +50,9 @@ class Workspace:
 
         # create logger
         if cfg.use_wandb:
-            exp_name = cfg.data_folder
-            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": cfg['agent']['feature_dim'], "tau" :cfg['agent']['critic_target_tau'], 'action_rep':cfg.action_repeat, 'entropy_coef':cfg['agent']['entropy_coef'], "weight_decay": 0, "skill_dim": cfg['agent']['skill_dim'], "uid": cfg.uid}
-            wandb.init(project="cic_pretrain_2",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
+            exp_name = cfg.experiment
+            confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": cfg['agent']['feature_dim'], "tau" :cfg['agent']['critic_target_tau'], 'action_rep':cfg.action_repeat}
+            wandb.init(project="aps_pretrain",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
 
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb,use_wandb=cfg.use_wandb)
         # create envs
@@ -63,7 +63,6 @@ class Workspace:
         self.eval_env = dmc.make(task, cfg.obs_type,
                                  cfg.frame_stack, cfg.action_repeat,
                                  cfg.seed)
-
         # create agent
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),

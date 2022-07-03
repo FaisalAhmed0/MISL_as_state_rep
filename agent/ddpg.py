@@ -37,6 +37,8 @@ class Actor(nn.Module):
 
         self.trunk = nn.Sequential(nn.Linear(obs_dim, feature_dim),
                                    nn.LayerNorm(feature_dim), nn.Tanh())
+#         self.trunk = nn.Sequential(nn.Linear(obs_dim, feature_dim),
+#                                    nn.ReLU(inplace=True))
 
         policy_layers = []
         policy_layers += [
@@ -77,6 +79,8 @@ class Critic(nn.Module):
             # for pixels actions will be added after trunk
             self.trunk = nn.Sequential(nn.Linear(obs_dim, feature_dim),
                                        nn.LayerNorm(feature_dim), nn.Tanh())
+#             self.trunk = nn.Sequential(nn.Linear(obs_dim, feature_dim),
+#                                    nn.ReLU(inplace=True))
             trunk_dim = feature_dim + action_dim
         else:
             # for states actions come in the beginning
@@ -124,7 +128,7 @@ class DDPGAgent:
     def __init__(self, name, reward_free, obs_type, obs_shape, action_shape,
                  device, lr, feature_dim, hidden_dim, critic_target_tau,
                  num_expl_steps, update_every_steps, stddev_schedule, nstep,
-                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, entropy_coef ,meta_dim=0, state_encoder="none", update_state_encoder=False):
+                 batch_size, stddev_clip, init_critic, use_tb, use_wandb, update_encoder, entropy_coef=0 ,meta_dim=0, state_encoder="none", update_state_encoder=False):
         self.reward_free = reward_free
         self.obs_type = obs_type
         self.action_dim = action_shape[0]
@@ -224,11 +228,11 @@ class DDPGAgent:
         obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
         if not self.finetune_state_encoder:
             h = self.encoder(obs).detach() # Use the state encoder as a fixed feature extractor
-            if self.use_state_encoder != "none":
+            if self.misl_state_encoder:
                 h = self.misl_state_encoder(h).detach()
         else:
             h = self.encoder(obs) # Fintune the state encoder for the downstream task
-            if self.use_state_encoder != "none":
+            if self.misl_state_encoder:
                 h = self.misl_state_encoder(h)
         inputs = [h]
         for value in meta.values():
@@ -354,3 +358,4 @@ class DDPGAgent:
            
 
         return metrics
+   

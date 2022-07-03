@@ -2,7 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optm as opt
+import utils
+from torchvision import transforms
+from agent.cic import RMS
 
 
 
@@ -33,14 +35,14 @@ class Transform:
         self.transform = transforms.Compose([
           transforms.RandomResizedCrop(84),
           transforms.RandomHorizontalFlip(p=0.5),
-          # transforms.RandomApply(
-          #     [transforms.ColorJitter(brightness=0.4, contrast=0.4,
-          #                             saturation=0.2, hue=0.1)],
-          #     p=0.8
-          # ),
-          # transforms.RandomGrayscale(p=0.2),
-#           transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-          # Solarization(p=0.0),
+          transforms.RandomApply(
+              [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                                      saturation=0.2, hue=0.1)],
+              p=0.8
+          ),
+          transforms.RandomGrayscale(p=0.2),
+          transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+#           Solarization(p=0.0),
 #           transforms.ToTensor(),
 #           transforms.Normalize(
 #                   mean=(0.5)*9, std=(0.5)*9)
@@ -49,14 +51,14 @@ class Transform:
         self.transform_prime = transforms.Compose([
           transforms.RandomResizedCrop(84),
           transforms.RandomHorizontalFlip(p=0.5),
-          # transforms.RandomApply(
-          #     [transforms.ColorJitter(brightness=0.4, contrast=0.4,
-          #                             saturation=0.2, hue=0.1)],
-          #     p=0.8
-          # ),
-          # transforms.RandomGrayscale(p=0.2),
-#           transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
-          # Solarization(p=0.2),
+          transforms.RandomApply(
+              [transforms.ColorJitter(brightness=0.4, contrast=0.4,
+                                      saturation=0.2, hue=0.1)],
+              p=0.8
+          ),
+          transforms.RandomGrayscale(p=0.2),
+          transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5)),
+#           Solarization(p=0.2),
 #           transforms.ToTensor(),
 #           transforms.Normalize(
 #                   mean=(0.5)*9, std=(0.5)*9)
@@ -79,7 +81,7 @@ class SimCLR(nn.Module):
         self.projector = nn.Sequential(nn.Linear(self.cnn_backbone.repr_dim, hidden_dim), nn.ReLU(),
                                        nn.Linear(hidden_dim, hidden_dim), nn.ReLU(), 
                                        nn.Linear(hidden_dim,latent_size))
-        self.trasnform = Transform()
+        self.transform = Transform()
         
         self.CEL = nn.CrossEntropyLoss(reduction="mean")
         # running mean and std of the contrastive reward
@@ -115,16 +117,23 @@ class SimCLR(nn.Module):
         loss = CEL(logits, labels)
         return loss
     
-    def info_nce_reward(self, z1, z2):
-        batch_size = z1.shape[0]
-        device = z1.device
+    def info_nce_reward(self, x1, x2):
+        batch_size = x1.shape[0]
+        device = x1.device
+        
+        z1 = self.projector(self.cnn_backbone(x1)) 
+        z2 = self.projector(self.cnn_backbone(x2))
+        
         z1 = nn.functional.normalize(z1, dim=1) #[b x d]
         z2 = nn.functional.normalize(z2, dim=1) #[b x d]
         # calulate the similarity
-        sim = - (torch.sum(z1[:, None, :] * z2[None, :, :], dim=-1)).diag() # shape: (B,)
-        reward = sim + 1
+        sim = - (torch.sum(z1 * z2, dim=1)) # shape: (B,)
+#         print(f"sim: {sim[:64]}")
+        reward = sim + 1.2
         runnung_mean, running_std = self.rms(reward)
-        return reward/running_std
+#         print(f"reward: {reward}")
+#         print(f"running_std: {running_std}")
+        return reward
     
     
 # In case of using CIC the reward will come from the entropy term
@@ -254,11 +263,13 @@ class Critic(nn.Module):
 
         self.apply(utils.weight_init)
 
-    def forward(self, obs, action):
+    def forward(self, obs, action, skill_dim=0, skill=None):
         inpt = obs if self.obs_type == 'pixels' else torch.cat([obs, action],
                                                                dim=-1)
         # encode the images with the shared state encoder
         inpt = self.cnn_encoder(obs)
+        if skill_dim > 0:
+            obs = torch.cat([obs_encoded, skill], dim=1)
         h = self.trunk(inpt)
         h = torch.cat([h, action], dim=-1) if self.obs_type == 'pixels' else h
 

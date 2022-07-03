@@ -59,16 +59,21 @@ class VAE(nn.Module):
         return x.shape, torch.prod(torch.tensor(x.shape))
 
     def enc_forward(self, x):
+#         print(f"x shape:{x.shape}")
         x = self.encoder(x)
         x = x.view(x.shape[0], -1)
+#         print(f"x flattend size: {x.shape}")
         mean = self.mean(x)
+#         print(f"mean size: {mean.shape}")
         logvar = self.logvar(x)
         return mean, logvar
 
     def dec_forward(self, x):
         x = self.linear(x)
         x = x.view(-1, self.img_shape[1], self.img_shape[2], self.img_shape[3])
+#         print(f"x reshaped size:{x.shape}")
         x = self.decoder(x)
+#         print(f"x decoded size:{x.shape}")
         return x
 
     def reparametrization(self, mu, logvar):

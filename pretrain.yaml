@@ -11,13 +11,13 @@ frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 2 # set to 2 for pixels
 discount: 0.99
 # train settings
-num_train_frames: 3500010
+num_train_frames: 6000010
 num_seed_frames: 4000
 # eval
 eval_every_frames: 10000
 num_eval_episodes: 10
 # snapshot
-snapshots: [100000, 500000, 1000000, 1500000, 1900000,2000000, 2500000,3000000, 3500000] # [99849,499992,999984,1999968] # 
+snapshots: [100000, 500000, 1000000, 1500000, 1900000,2000000, 2500000,3000000, 3500000, 4000000, 4500000, 5000000, 5500000, 6000000] # [99849,499992,999984,1999968] # 
 # snapshot_dir: ../../../pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
 snapshot_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
 # replay buffer
@@ -27,7 +27,7 @@ batch_size: ${agent.batch_size}
 nstep: ${agent.nstep}
 update_encoder: true # should always be true for pre-training
 # misc
-seed: 65
+seed: 5
 device: cuda
 save_video: true
 save_train_video: false

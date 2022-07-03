@@ -11,7 +11,7 @@ epochs = 500,
 # weight_decay
 weight_decay = 0,
 # latent size
-latent_size = 1024,
+latent_size = 64,
 # temperature
 temp = 0.5,
 # device
