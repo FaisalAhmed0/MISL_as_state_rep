@@ -10,6 +10,9 @@ obs_type: pixels # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 2 # set to 2 for pixels
 discount: 0.99
+use_distractor: false
+distractor_path: /mnt/qb/work/bethge/fmohamed65/DAVIS/JPEGImages/480p
+distractor_difficulty: easy
 # train settings
 num_train_frames: 500010
 num_seed_frames: 4000

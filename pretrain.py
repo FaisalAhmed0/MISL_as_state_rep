@@ -52,17 +52,16 @@ class Workspace:
         if cfg.use_wandb:
             exp_name = cfg.experiment
             confs = {"seed": cfg.seed, "agent": cfg.agent.name, "domain": cfg.domain, "obs_type": cfg.obs_type, "feature_dim": cfg['agent']['feature_dim'], "tau" :cfg['agent']['critic_target_tau'], 'action_rep':cfg.action_repeat}
-            wandb.init(project="aps_pretrain",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
+            wandb.init(project="video_distractor_test",group=cfg.agent.name,name=exp_name, entity="misi_as_state_rep", config=confs)
 
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb,use_wandb=cfg.use_wandb)
         # create envs
         task = PRIMAL_TASKS[self.cfg.domain]
-        self.train_env = dmc.make(task, cfg.obs_type,
-                                  cfg.frame_stack, cfg.action_repeat,
-                                  cfg.seed)
-        self.eval_env = dmc.make(task, cfg.obs_type,
-                                 cfg.frame_stack, cfg.action_repeat,
-                                 cfg.seed)
+        # create envs
+        self.train_env = dmc.make(task, cfg.obs_type, cfg.frame_stack,
+                                  cfg.action_repeat, cfg.seed, use_distractor=cfg.use_distractor, data_path=cfg.distractor_path, distractor_difficulty=cfg.distractor_difficulty)
+        self.eval_env = dmc.make(task, cfg.obs_type, cfg.frame_stack,
+                                 cfg.action_repeat, cfg.seed, use_distractor=cfg.use_distractor, data_path=cfg.distractor_path, distractor_difficulty=cfg.distractor_difficulty)
         # create agent
         self.agent = make_agent(cfg.obs_type,
                                 self.train_env.observation_spec(),

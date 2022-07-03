@@ -89,11 +89,10 @@ class Workspace:
         # create logger
         self.logger = Logger(self.work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
         # create envs
-
         self.train_env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
-                                  cfg.action_repeat, cfg.seed)
+                                  cfg.action_repeat, cfg.seed, use_distractor=cfg.use_distractor, data_path=cfg.distractor_path, distractor_difficulty=cfg.distractor_difficulty)
         self.eval_env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
-                                 cfg.action_repeat, cfg.seed)
+                                 cfg.action_repeat, cfg.seed, use_distractor=cfg.use_distractor, data_path=cfg.distractor_path, distractor_difficulty=cfg.distractor_difficulty)
         # override the obervation shape if the state enocder will be used
         # create agent
         self.agent = make_agent(cfg.obs_type,

@@ -8,6 +8,7 @@ from dm_control.suite.wrappers import action_scale, pixels
 from dm_env import StepType, specs
 
 import custom_dmc_tasks as cdmc
+from distracting_control import suite as distractor_suite
 
 
 class ExtendedTimeStep(NamedTuple):
@@ -272,14 +273,20 @@ def _make_jaco(obs_type, domain, task, frame_stack, action_repeat, seed):
     return env
 
 
-def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed):
+def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed, use_distractor=False, data_path=None, distractor_difficulty="easy"):
     visualize_reward = False
     if (domain, task) in suite.ALL_TASKS:
-        env = suite.load(domain,
-                         task,
-                         task_kwargs=dict(random=seed),
-                         environment_kwargs=dict(flat_observation=True),
-                         visualize_reward=visualize_reward)
+        if use_distractor:
+            env = distractor_suite.load(domain, task, distractor_difficulty, background_dataset_path=data_path, task_kwargs=dict(random=seed), environment_kwargs=dict(flat_observation=True), visualize_reward=visualize_reward)
+        else:
+            env = suite.load(domain,
+                             task,
+                             task_kwargs=dict(random=seed),
+                             environment_kwargs=dict(flat_observation=True),
+                             visualize_reward=visualize_reward)
+        # TODO env with video ditractor
+        # suite.load(  domain, task, difficulty, background_dataset_path=FLAGS.davis_path)
+        
     else:
         env = cdmc.make(domain,
                         task,
@@ -299,7 +306,8 @@ def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed):
     return env
 
 
-def make(name, obs_type, frame_stack, action_repeat, seed):
+# TODO pass the video distractor parameters
+def make(name, obs_type, frame_stack, action_repeat, seed, use_distractor=False, data_path=None, distractor_difficulty="easy"):
     assert obs_type in ['states', 'pixels']
     if "ball_in_cup" in name:
         domain = "ball_in_cup"
@@ -307,7 +315,11 @@ def make(name, obs_type, frame_stack, action_repeat, seed):
     else:
         domain, task = name.split('_', 1)
     make_fn = _make_jaco if domain == 'jaco' else _make_dmc
-    env = make_fn(obs_type, domain, task, frame_stack, action_repeat, seed)
+    # TODO: Pass the videp distractor parameters
+    if domain != "jaco":
+        env = make_fn(obs_type, domain, task, frame_stack, action_repeat, seed, use_distractor=use_distractor, data_path=data_path, distractor_difficulty=distractor_difficulty)
+    else:
+        env = make_fn(obs_type, domain, task, frame_stack, action_repeat, seed)
 
     if obs_type == 'pixels':
         env = FrameStackWrapper(env, frame_stack)
