@@ -1,0 +1,7 @@
+run.sh
+slurm.sh
+slurm/
+.ipynb_checkpoints/
+__pycache__/*
+agent/__pycache__/*
+baselines/vae/wandb/

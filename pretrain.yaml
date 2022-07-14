@@ -1,0 +1,60 @@
+defaults:
+  - agent: ddpg
+  - override hydra/launcher: submitit_local
+
+# mode
+reward_free: true
+# task settings
+domain: walker # primal task will be infered in runtime
+obs_type: pixels # [states, pixels]
+frame_stack: 3 # only works if obs_type=pixels
+action_repeat: 2 # set to 2 for pixels
+discount: 0.99
+use_distractor: true
+distractor_path: /mnt/qb/work/bethge/fmohamed65/DAVIS/JPEGImages/480p
+distractor_difficulty: medium
+# train settings
+num_train_frames: 6000010
+num_seed_frames: 4000
+# eval
+eval_every_frames: 10000
+num_eval_episodes: 10
+# snapshot
+snapshots: [100000, 500000, 1000000, 1500000, 1900000,2000000, 2500000,3000000, 3500000, 4000000, 4500000, 5000000, 5500000, 6000000] # [99849,499992,999984,1999968] # 
+# snapshot_dir: ../../../pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
+snapshot_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models/${obs_type}/${domain}/${agent.name}/${experiment}
+# replay buffer
+replay_buffer_size: 1000000
+replay_buffer_num_workers: 4
+batch_size: ${agent.batch_size}
+nstep: ${agent.nstep}
+update_encoder: true # should always be true for pre-training
+# misc
+seed: 5
+device: cuda
+save_video: true
+save_train_video: false
+use_tb: false
+use_wandb: true
+# experiment
+experiment: exp
+data_folder: none
+uid: none
+snapshotfile_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models/
+snapshot: -2
+
+
+hydra:
+  run:
+    dir: /mnt/qb/work/bethge/fmohamed65/exp_local/${data_folder}
+  sweep:
+    dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
+    subdir: ${hydra.job.num}
+  launcher:
+    timeout_min: 4300
+    cpus_per_task: 10
+    gpus_per_node: 1
+    tasks_per_node: 1
+    mem_gb: 160
+    nodes: 1
+    submitit_folder: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}/.slurm

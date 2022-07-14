@@ -1,0 +1,62 @@
+defaults:
+  - agent: ddpg
+  - override hydra/launcher: submitit_local
+pretrained_agent: none
+# mode
+reward_free: false
+# task settings
+task: jaco_reach_bottom_left
+obs_type: pixels # [states, pixels]
+frame_stack: 3 # only works if obs_type=pixels
+action_repeat: 2 # set to 2 for pixels
+discount: 0.99
+use_distractor: false
+distractor_path: /mnt/qb/work/bethge/fmohamed65/DAVIS/JPEGImages/480p
+distractor_difficulty: easy
+# train settings
+num_train_frames: 500010
+num_seed_frames: 4000
+# eval
+eval_every_frames: 10000
+num_eval_episodes: 10
+# pretrained
+snapshot_ts: -1 # make -1 do disable pre-trained initlization
+snapshot_base_dir: /mnt/qb/work/bethge/fmohamed65/pretrained_models
+snapshot_name: none
+replay_buffer_size: 1000000
+replay_buffer_num_workers: 4
+batch_size: ${agent.batch_size}
+nstep: ${agent.nstep}
+update_encoder: true # can be either true or false depending if we want to fine-tune encoder
+pretrained_encoder: none # can be either none vae or cl
+# misc
+seed: 5
+device: cuda
+save_video: true
+save_train_video: false
+use_tb: false
+use_wandb: true
+# experiment
+experiment: exp
+num_bootstrap_updates: 10000
+# use the state encoder from either CIC or DIAYN
+state_encoder: none # Values: none, cic, diayn
+update_state_encoder: false 
+data_folder: none
+uid: none
+entropy: 64
+
+hydra:
+  run:
+    dir: /mnt/qb/work/bethge/fmohamed65/exp_local/${data_folder}
+#   sweep:
+#     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
+#     subdir: ${hydra.job.num}
+#   launcher:
+#     timeout_min: 4300
+#     cpus_per_task: 4
+#     gpus_per_node: 1
+#     tasks_per_node: 1
+#     mem_gb: 160
+#     nodes: 1
+#     submitit_folder: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}/.slurm
